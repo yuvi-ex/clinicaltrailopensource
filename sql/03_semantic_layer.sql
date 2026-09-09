@@ -34,19 +34,36 @@ FROM CT.TRIALS t;
 -- GEOGRAPHY. Structured and reliable; only the region rollup is ours.
 -- ------------------------------------------------------------------
 CREATE OR REPLACE VIEW CT.V_TRIAL_GEOGRAPHY AS
+-- Country names are the API's DISPLAY names, not ISO names: it returns
+-- 'South Korea', 'Turkey (Türkiye)' and 'Vietnam', not 'Korea, Republic of',
+-- 'Turkey' and 'Viet Nam'. An ISO-flavoured mapping silently dumped 1,422
+-- trials into 'unmapped' and under-counted Asia-Pacific by ~900. Every country
+-- present in the snapshot is listed below; the ELSE is now genuinely residual.
 SELECT c.NCT_ID, c.COUNTRY,
   CASE
-    WHEN c.COUNTRY IN ('United States','Canada','Puerto Rico') THEN 'North America'
-    WHEN c.COUNTRY IN ('China','Japan','Korea, Republic of','Taiwan','India',
-         'Hong Kong','Singapore','Thailand','Malaysia','Viet Nam','Indonesia',
-         'Philippines','Australia','New Zealand','Pakistan','Bangladesh') THEN 'Asia-Pacific'
+    WHEN c.COUNTRY IN ('United States','Canada','Puerto Rico','Guam') THEN 'North America'
+    WHEN c.COUNTRY IN ('China','Japan','South Korea','North Korea','Taiwan','India',
+         'Hong Kong','Singapore','Thailand','Malaysia','Vietnam','Indonesia',
+         'Philippines','Australia','New Zealand','Pakistan','Bangladesh','Nepal',
+         'Mongolia','Kazakhstan') THEN 'Asia-Pacific'
     WHEN c.COUNTRY IN ('United Kingdom','France','Germany','Italy','Spain',
          'Netherlands','Belgium','Sweden','Denmark','Norway','Finland','Ireland',
          'Austria','Switzerland','Poland','Czechia','Hungary','Portugal','Greece',
          'Romania','Bulgaria','Slovakia','Croatia','Slovenia','Estonia','Latvia',
-         'Lithuania','Luxembourg','Malta','Cyprus') THEN 'Europe'
-    WHEN c.COUNTRY IN ('Brazil','Argentina','Mexico','Chile','Colombia','Peru') THEN 'Latin America'
-    WHEN c.COUNTRY IN ('Israel','Turkey','Saudi Arabia','Egypt','United Arab Emirates') THEN 'Middle East / North Africa'
+         'Lithuania','Luxembourg','Malta','Cyprus','Iceland','Monaco',
+         'Serbia','Bosnia and Herzegovina','North Macedonia','Montenegro','Albania',
+         'Russia','Ukraine','Belarus','Moldova','Georgia','Armenia','Azerbaijan')
+         THEN 'Europe'
+    WHEN c.COUNTRY IN ('Brazil','Argentina','Mexico','Chile','Colombia','Peru',
+         'Costa Rica','Guatemala','Panama','Uruguay','Venezuela','Ecuador',
+         'El Salvador','Honduras','Cuba','Dominican Republic','Jamaica',
+         'Barbados','Trinidad and Tobago','Martinique') THEN 'Latin America'
+    WHEN c.COUNTRY IN ('Israel','Turkey (Türkiye)','Saudi Arabia','Egypt',
+         'United Arab Emirates','Lebanon','Jordan','Iran','Iraq','Qatar','Oman',
+         'Bahrain','Syria','Morocco','Tunisia','Algeria','Palestinian Territories')
+         THEN 'Middle East / North Africa'
+    WHEN c.COUNTRY IN ('South Africa','Nigeria','Kenya','Uganda','Rwanda',
+         'Botswana','Ethiopia','Ghana','Malawi','Niger') THEN 'Sub-Saharan Africa'
     ELSE 'Other / unmapped'
   END AS REGION
 FROM CT.TRIAL_COUNTRIES c;
