@@ -105,3 +105,13 @@ looking in the wrong half.
   A transformer would retrieve better and would be **just as blind to `no`**.
 - The API advertises no rate limits, and the snapshot is committed anyway: a
   booth demo must never depend on the venue network.
+
+# Local probe UI
+
+```
+python3 bin/ui.py     # http://127.0.0.1:8899/
+```
+
+Stdlib only. Runs every question BOTH ways -- text alone and with the structured
+section filter -- side by side, and highlights in red any top-ranked row that came
+from the wrong criteria section. Preset buttons load the two known failures.
