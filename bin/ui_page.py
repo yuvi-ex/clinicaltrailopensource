@@ -38,6 +38,8 @@ section[hidden]{display:none}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
  padding:15px 16px;margin-bottom:14px}
 .card>h2{font-size:14px;margin:0 0 3px}
+.card.lede p{margin:0;font-size:14px;line-height:1.6;color:var(--fg2)}
+.card.lede b{color:var(--fg)}
 .card>.note{font-size:12.5px;color:var(--mut);margin:0 0 12px}
 .grid{display:grid;gap:14px;grid-template-columns:1fr}
 @media(min-width:820px){.grid.two{grid-template-columns:1fr 1fr}}
@@ -152,6 +154,13 @@ svg{max-width:100%;height:auto;display:block}
 
 <!-- ================= DATASET ================= -->
 <section id="tab-dataset" hidden>
+  <div class="card lede">
+    <p><b>ClinicalTrials.gov API v2 only.</b> <span id="ds-lede-n">12,404</span>
+    interventional trials, non-small cell lung cancer + breast cancer, started 2015 or
+    later. Committed as a <span id="ds-lede-mb">15</span>&nbsp;MB gzipped snapshot in
+    <code>data/</code> &mdash; so the demo makes <b>no live API calls</b> and cannot be
+    broken by a venue network.</p>
+  </div>
   <div class="tiles" id="ds-tiles"></div>
   <div class="grid two" style="margin-top:14px">
     <div class="card"><h2>Where the data comes from</h2>
@@ -376,59 +385,94 @@ async function tok(){
   }catch(e){o.innerHTML='<div class="flag">'+esc(e)+'</div>';}
 }
 
-/* ---------------- architecture diagram ---------------- */
+/* ---------------- architecture diagram ----------------
+   Reworked: two panels, each flowing in ONE direction only, and the offline
+   artefacts are vertically ALIGNED with the stores they load into, so the two
+   connecting arrows are short horizontals that cross nothing. The previous
+   version fanned diagonals across its own labels and overflowed its boxes. */
 function archSvg(t){
-  const L='var(--line)',T='var(--fg)',M='var(--mut)',S='var(--seq)',C='var(--card)';
-  const box=(x,y,w,h,fill)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7"
+  const L='var(--line)', T='var(--fg)', M='var(--mut)', S='var(--seq)',
+        C='var(--card)', F='var(--surface)';
+  const b=(x,y,w,h,fill)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7"
     fill="${fill||C}" stroke="${L}" stroke-width="1"/>`;
-  const txt=(x,y,s,o={})=>`<text x="${x}" y="${y}" fill="${o.c||T}"
-    font-size="${o.s||11.5}" font-weight="${o.w||400}"
-    font-family="-apple-system,system-ui,sans-serif" text-anchor="${o.a||'start'}">${s}</text>`;
-  const arrow=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+  const shell=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="9"
+    fill="none" stroke="${L}" stroke-width="1.5"/>`;
+  const tx=(x,y,str,o={})=>`<text x="${x}" y="${y}" fill="${o.c||T}"
+    font-size="${o.s||11.5}" font-weight="${o.w||400}" text-anchor="${o.a||'start'}"
+    font-family="-apple-system,system-ui,sans-serif">${str}</text>`;
+  const down=(x,y1,y2)=>`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}"
     stroke="${S}" stroke-width="2" marker-end="url(#ah)"/>`;
-  return `<svg viewBox="0 0 900 430" role="img"
-   aria-label="Offline build in Docker produces Parquet tables and a model file; Exasol holds the tables and BucketFS; a query calls two UDFs then joins and groups.">
-  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6"
-    markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${S}"/></marker></defs>
+  const right=(x1,x2,y)=>`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"
+    stroke="${S}" stroke-width="2" marker-end="url(#ah)"/>`;
 
-  ${box(8,8,420,180)} ${txt(22,28,'ONCE, OUTSIDE THE DATABASE',{s:10,w:700,c:M})}
-  ${txt(22,45,'Docker, scikit-learn pinned to the database’s version',{s:11,c:M})}
-  ${box(22,58,120,44)} ${txt(32,76,'Snapshot',{w:600})} ${txt(32,92,`${fmt(t.trials)} trials`,{s:10.5,c:M})}
-  ${arrow(146,80,168,80)}
-  ${box(172,58,120,44)} ${txt(182,76,'Shred',{w:600})} ${txt(182,92,`${fmt(t.chunks)} criteria`,{s:10.5,c:M})}
-  ${arrow(296,80,318,80)}
-  ${box(322,58,96,44)} ${txt(332,76,'TF-IDF',{w:600})} ${txt(332,92,'→ SVD 96d',{s:10.5,c:M})}
-  ${box(22,118,180,54)} ${txt(32,137,'Parquet files',{w:600})}
-  ${txt(32,153,`${fmt(t.vector_rows)} vector rows`,{s:10.5,c:M})}
-  ${box(216,118,202,54)} ${txt(226,137,'elig_model.pkl',{w:600})}
-  ${txt(226,153,'vectoriser + SVD, 94 MB',{s:10.5,c:M})}
+  return `<svg viewBox="0 0 900 626" role="img"
+   aria-label="Left: built once outside the database in Docker - snapshot, shred to criteria sentences, TF-IDF and SVD - producing a Parquet file and a model file. Those load into Exasol tables and BucketFS. Right: at query time a question passes through two Python UDFs and is otherwise pure SQL, returning ranked criteria that cite NCT IDs.">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5"
+    markerHeight="5.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${S}"/></marker></defs>
 
-  ${box(468,8,424,414)} ${txt(482,28,'EXASOL PERSONAL LOCAL',{s:10,w:700,c:M})}
-  ${txt(482,45,'nothing leaves this machine',{s:11,c:M})}
-  ${box(482,58,190,96)} ${txt(492,77,'Tables',{w:600})}
-  ${txt(492,94,`ELIG_VECTORS  ${fmt(t.vector_rows)}`,{s:10.5,c:M})}
-  ${txt(492,109,`CHUNK_TOKENS  ${fmt(t.token_rows)}`,{s:10.5,c:M})}
-  ${txt(492,124,`ELIG_CHUNKS   ${fmt(t.chunks)}`,{s:10.5,c:M})}
-  ${txt(492,139,'+ semantic-layer views',{s:10.5,c:M})}
-  ${box(692,58,190,96)} ${txt(702,77,'BucketFS',{w:600})}
-  ${txt(702,94,'the database’s own',{s:10.5,c:M})}
-  ${txt(702,109,'file store, mounted',{s:10.5,c:M})}
-  ${txt(702,124,'inside the UDF at',{s:10.5,c:M})}
-  ${txt(702,139,'/buckets/…',{s:10.5,c:M})}
-  ${arrow(210,145,478,110)} ${arrow(418,145,688,110)}
+  <!-- ============ LEFT: the one-off build ============ -->
+  ${shell(14,14,330,362)}
+  ${tx(30,36,'BUILT ONCE, OUTSIDE THE DATABASE',{s:10,w:700,c:M})}
+  ${tx(30,52,'Docker &middot; scikit-learn pinned to the database',{s:10.5,c:M})}
 
-  ${box(482,180,400,40,'var(--surface)')}
-  ${txt(492,205,'Your question  —  “prior treatment with an anti-PD-1 antibody”',{s:11})}
-  ${arrow(682,222,682,240)}
-  ${box(482,244,400,52)}
-  ${txt(492,263,'2 Python UDFs  —  the only Python at query time',{w:600})}
-  ${txt(492,281,'EMBED_QUERY → 96 rows      QUERY_TERMS → BM25 terms',{s:10.5,c:M})}
-  ${arrow(682,298,682,316)}
-  ${box(482,320,400,52)}
-  ${txt(492,339,'Pure SQL  —  join, GROUP BY, rank, fuse',{w:600})}
-  ${txt(492,357,'cosine = SUM(a.VAL * b.VAL)      then BM25, then RRF',{s:10.5,c:M})}
-  ${arrow(682,374,682,392)}
-  ${txt(682,406,'Ranked criteria, each citing its NCT ID',{s:11,w:600,a:'middle'})}
+  ${b(30,66,298,46)}
+  ${tx(42,85,'Snapshot',{w:600})}
+  ${tx(42,101,`${fmt(t.trials)} trials &middot; committed to the repo`,{s:10.5,c:M})}
+  ${down(179,114,128)}
+
+  ${b(30,132,298,46)}
+  ${tx(42,151,'Shred into criteria sentences',{w:600})}
+  ${tx(42,167,`${fmt(t.chunks)} &middot; inclusion/exclusion recovered`,{s:10.5,c:M})}
+  ${down(179,180,194)}
+
+  ${b(30,198,298,46)}
+  ${tx(42,217,'TF-IDF &rarr; SVD &rarr; L2 normalise',{w:600})}
+  ${tx(42,233,`96 dims &middot; ${fmt(t.vocab)} term vocabulary`,{s:10.5,c:M})}
+  ${down(179,246,258)}
+
+  ${tx(30,272,'produces two files',{s:10,c:M})}
+  ${b(30,278,298,42,F)}
+  ${tx(42,295,'Parquet',{w:600})}
+  ${tx(42,311,`${fmt(t.vector_rows)} vector rows`,{s:10.5,c:M})}
+
+  ${b(30,328,298,42,F)}
+  ${tx(42,345,'elig_model.pkl',{w:600})}
+  ${tx(42,361,'vectoriser + SVD &middot; 94 MB',{s:10.5,c:M})}
+
+  <!-- the only two crossing arrows: short, horizontal, aligned to their targets -->
+  ${right(332,368,299)}
+  ${right(332,368,349)}
+
+  <!-- ============ RIGHT: Exasol ============ -->
+  ${shell(374,14,512,598)}
+  ${tx(390,36,'EXASOL PERSONAL LOCAL',{s:10,w:700,c:M})}
+  ${tx(390,52,'nothing leaves this machine',{s:10.5,c:M})}
+  ${tx(390,82,'Loaded once. From here on the database only does arithmetic,',{s:11.5,c:M})}
+  ${tx(390,99,'which is the part it can spread across every core.',{s:11.5,c:M})}
+
+  ${b(390,278,480,42)}
+  ${tx(402,295,'Tables',{w:600})}
+  ${tx(402,311,`ELIG_VECTORS ${fmt(t.vector_rows)} &middot; CHUNK_TOKENS ${fmt(t.token_rows)}`,{s:10.5,c:M})}
+
+  ${b(390,328,480,42)}
+  ${tx(402,345,'BucketFS',{w:600})}
+  ${tx(402,361,'the database&rsquo;s own file store, mounted in the UDF',{s:10.5,c:M})}
+
+  ${tx(390,406,'EVERY QUESTION, AT QUERY TIME',{s:10,w:700,c:M})}
+  ${b(390,416,480,40,F)}
+  ${tx(402,441,'&ldquo;prior treatment with an anti-PD-1 antibody&rdquo;',{s:11.5})}
+  ${down(630,458,472)}
+
+  ${b(390,476,480,46)}
+  ${tx(402,495,'2 Python UDFs &mdash; the only Python at query time',{w:600})}
+  ${tx(402,511,'EMBED_QUERY &rarr; 96 rows &middot; QUERY_TERMS &rarr; BM25 terms',{s:10.5,c:M})}
+  ${down(630,524,538)}
+
+  ${b(390,542,480,46)}
+  ${tx(402,561,'Pure SQL &mdash; join, GROUP BY, rank, fuse',{w:600})}
+  ${tx(402,577,'cosine = SUM(a.VAL &times; b.VAL), then BM25, then RRF',{s:10.5,c:M})}
+
+  ${tx(630,606,'&darr; ranked criteria, each citing its NCT ID',{s:11,w:600,a:'middle'})}
 </svg>`;
 }
 
@@ -449,6 +493,8 @@ function archSvg(t){
     +tile(fmt(t.chunks),'Criteria sentences','every trial has criteria text')
     +tile(fmt(t.sponsors),'Distinct sponsors','across '+t.countries+' countries')
     +tile(fmt(t.outcomes),'Recorded endpoints','free text, not coded');
+  document.getElementById('ds-lede-n').textContent=fmt(sn.trials||t.trials);
+  document.getElementById('ds-lede-mb').textContent=((sn.bytes||0)/1048576).toFixed(1);
   document.getElementById('ds-source').innerHTML=kv({
     'Source':'ClinicalTrials.gov API v2',
     'Fetched':(sn.fetched_utc||'?'),
