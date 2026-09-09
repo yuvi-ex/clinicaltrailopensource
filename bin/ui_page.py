@@ -386,93 +386,85 @@ async function tok(){
 }
 
 /* ---------------- architecture diagram ----------------
-   Reworked: two panels, each flowing in ONE direction only, and the offline
-   artefacts are vertically ALIGNED with the stores they load into, so the two
-   connecting arrows are short horizontals that cross nothing. The previous
-   version fanned diagonals across its own labels and overflowed its boxes. */
+   Three numbered bands, read top to bottom. The previous version was flat --
+   every box the same border, fill and weight, so nothing told the eye where to
+   start. Hierarchy now comes from four devices, none of them colour alone:
+     - a numbered accent badge anchors each band
+     - the NUMBER is the big type; its label recedes to 10.5px muted
+     - bands 1 and 2 sit on the recessed surface; band 3 sits on the raised card
+       with a 4px accent rule, because it is the only band that runs per question
+     - one arrow between bands, dead centre, crossing nothing                */
 function archSvg(t){
   const L='var(--line)', T='var(--fg)', M='var(--mut)', S='var(--seq)',
         C='var(--card)', F='var(--surface)';
-  const b=(x,y,w,h,fill)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7"
-    fill="${fill||C}" stroke="${L}" stroke-width="1"/>`;
-  const shell=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="9"
-    fill="none" stroke="${L}" stroke-width="1.5"/>`;
+  const band=(y,h,hot)=>
+    `<rect x="16" y="${y}" width="868" height="${h}" rx="10" fill="${hot?C:F}"
+       stroke="${L}" stroke-width="1"/>` +
+    (hot?`<path d="M16 ${y+10} a10 10 0 0 1 10 -10 h0 v${h} h0 a10 10 0 0 1 -10 -10 z"
+       fill="${S}"/><rect x="20" y="${y}" width="2" height="${h}" fill="${S}"/>`:'');
+  const badge=(x,y,n)=>
+    `<circle cx="${x}" cy="${y}" r="14" fill="${S}"/>` +
+    `<text x="${x}" y="${y+5}" fill="#fff" font-size="14" font-weight="700"
+       text-anchor="middle" font-family="-apple-system,system-ui,sans-serif">${n}</text>`;
   const tx=(x,y,str,o={})=>`<text x="${x}" y="${y}" fill="${o.c||T}"
     font-size="${o.s||11.5}" font-weight="${o.w||400}" text-anchor="${o.a||'start'}"
-    font-family="-apple-system,system-ui,sans-serif">${str}</text>`;
-  const down=(x,y1,y2)=>`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}"
+    font-family="${o.f||'-apple-system,system-ui,sans-serif'}">${str}</text>`;
+  // the number is the message; the label is the footnote
+  const hero=(x,y,v,label)=>tx(x,y,v,{s:23,w:650}) + tx(x,y+18,label,{s:10.5,c:M});
+  const chip=(x,y,w,h,a,b)=>
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7" fill="${F}"
+       stroke="${L}" stroke-width="1"/>` +
+    tx(x+13,y+19,a,{s:12,w:650}) + (b?tx(x+13,y+35,b,{s:10,c:M}):'');
+  const rgt=(x1,x2,y)=>`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"
     stroke="${S}" stroke-width="2" marker-end="url(#ah)"/>`;
-  const right=(x1,x2,y)=>`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"
-    stroke="${S}" stroke-width="2" marker-end="url(#ah)"/>`;
+  const dn=(x,y1,y2)=>`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}"
+    stroke="${S}" stroke-width="2.5" marker-end="url(#ah)"/>`;
 
-  return `<svg viewBox="0 0 900 626" role="img"
-   aria-label="Left: built once outside the database in Docker - snapshot, shred to criteria sentences, TF-IDF and SVD - producing a Parquet file and a model file. Those load into Exasol tables and BucketFS. Right: at query time a question passes through two Python UDFs and is otherwise pure SQL, returning ranked criteria that cite NCT IDs.">
-  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5"
-    markerHeight="5.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${S}"/></marker></defs>
+  return `<svg viewBox="0 0 900 566" role="img"
+   aria-label="Three stages. One: built once in Docker - 12,404 trials become 268,912 criteria sentences become 96 dimensions each. Two: loaded once into Exasol - 25.8 million vector rows in a table and a 94 megabyte model file in BucketFS. Three: every question takes about five seconds - the question passes through two Python UDFs and is otherwise pure SQL, a join and a GROUP BY, returning ranked NCT IDs.">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5"
+    markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${S}"/></marker></defs>
 
-  <!-- ============ LEFT: the one-off build ============ -->
-  ${shell(14,14,330,362)}
-  ${tx(30,36,'BUILT ONCE, OUTSIDE THE DATABASE',{s:10,w:700,c:M})}
-  ${tx(30,52,'Docker &middot; scikit-learn pinned to the database',{s:10.5,c:M})}
+  <!-- ================= 1 · BUILT ONCE ================= -->
+  ${band(14,150,false)}
+  ${badge(56,52,'1')}
+  ${tx(84,50,'BUILT ONCE',{s:14,w:700})}
+  ${tx(84,68,'in Docker &middot; scikit-learn pinned to the database&rsquo;s own version',{s:10.5,c:M})}
+  ${hero(84,116,fmt(t.trials),'trials in the committed snapshot')}
+  ${rgt(320,352,110)}
+  ${hero(376,116,fmt(t.chunks),'criteria sentences, split in / out')}
+  ${rgt(612,644,110)}
+  ${hero(668,116,'96','dimensions per sentence')}
 
-  ${b(30,66,298,46)}
-  ${tx(42,85,'Snapshot',{w:600})}
-  ${tx(42,101,`${fmt(t.trials)} trials &middot; committed to the repo`,{s:10.5,c:M})}
-  ${down(179,114,128)}
+  ${dn(450,168,190)}
 
-  ${b(30,132,298,46)}
-  ${tx(42,151,'Shred into criteria sentences',{w:600})}
-  ${tx(42,167,`${fmt(t.chunks)} &middot; inclusion/exclusion recovered`,{s:10.5,c:M})}
-  ${down(179,180,194)}
+  <!-- ================= 2 · LOADED ONCE ================= -->
+  ${band(194,150,false)}
+  ${badge(56,232,'2')}
+  ${tx(84,230,'LOADED ONCE',{s:14,w:700})}
+  ${tx(84,248,'into Exasol Personal Local &middot; nothing leaves this machine',{s:10.5,c:M})}
+  ${hero(84,296,fmt(t.vector_rows),'vector rows in ELIG_VECTORS &mdash; one row per dimension')}
+  ${hero(560,296,'94 MB','elig_model.pkl, in BucketFS')}
+  ${tx(84,330,`alongside ${fmt(t.token_rows)} token rows &middot; ${fmt(t.chunks)} criteria &middot; ${fmt(t.vocab)} terms`,{s:10.5,c:M})}
 
-  ${b(30,198,298,46)}
-  ${tx(42,217,'TF-IDF &rarr; SVD &rarr; L2 normalise',{w:600})}
-  ${tx(42,233,`96 dims &middot; ${fmt(t.vocab)} term vocabulary`,{s:10.5,c:M})}
-  ${down(179,246,258)}
+  ${dn(450,348,370)}
 
-  ${tx(30,272,'produces two files',{s:10,c:M})}
-  ${b(30,278,298,42,F)}
-  ${tx(42,295,'Parquet',{w:600})}
-  ${tx(42,311,`${fmt(t.vector_rows)} vector rows`,{s:10.5,c:M})}
+  <!-- ================= 3 · EVERY QUESTION (the hot path) ================= -->
+  ${band(374,178,true)}
+  ${badge(60,412,'3')}
+  ${tx(88,410,'EVERY QUESTION',{s:14,w:700})}
+  ${tx(88,428,'about 5 seconds &middot; only the second step runs Python',{s:10.5,c:M})}
 
-  ${b(30,328,298,42,F)}
-  ${tx(42,345,'elig_model.pkl',{w:600})}
-  ${tx(42,361,'vectoriser + SVD &middot; 94 MB',{s:10.5,c:M})}
+  ${chip(88,446,158,46,'Your question','free text')}
+  ${rgt(252,278,469)}
+  ${chip(284,446,186,46,'2 Python UDFs','EMBED_QUERY &middot; QUERY_TERMS')}
+  ${rgt(476,502,469)}
+  ${chip(508,446,214,46,'Pure SQL','join &middot; GROUP BY &middot; rank &middot; fuse')}
+  ${rgt(728,754,469)}
+  ${chip(760,446,110,46,'NCT IDs','cited')}
 
-  <!-- the only two crossing arrows: short, horizontal, aligned to their targets -->
-  ${right(332,368,299)}
-  ${right(332,368,349)}
-
-  <!-- ============ RIGHT: Exasol ============ -->
-  ${shell(374,14,512,598)}
-  ${tx(390,36,'EXASOL PERSONAL LOCAL',{s:10,w:700,c:M})}
-  ${tx(390,52,'nothing leaves this machine',{s:10.5,c:M})}
-  ${tx(390,82,'Loaded once. From here on the database only does arithmetic,',{s:11.5,c:M})}
-  ${tx(390,99,'which is the part it can spread across every core.',{s:11.5,c:M})}
-
-  ${b(390,278,480,42)}
-  ${tx(402,295,'Tables',{w:600})}
-  ${tx(402,311,`ELIG_VECTORS ${fmt(t.vector_rows)} &middot; CHUNK_TOKENS ${fmt(t.token_rows)}`,{s:10.5,c:M})}
-
-  ${b(390,328,480,42)}
-  ${tx(402,345,'BucketFS',{w:600})}
-  ${tx(402,361,'the database&rsquo;s own file store, mounted in the UDF',{s:10.5,c:M})}
-
-  ${tx(390,406,'EVERY QUESTION, AT QUERY TIME',{s:10,w:700,c:M})}
-  ${b(390,416,480,40,F)}
-  ${tx(402,441,'&ldquo;prior treatment with an anti-PD-1 antibody&rdquo;',{s:11.5})}
-  ${down(630,458,472)}
-
-  ${b(390,476,480,46)}
-  ${tx(402,495,'2 Python UDFs &mdash; the only Python at query time',{w:600})}
-  ${tx(402,511,'EMBED_QUERY &rarr; 96 rows &middot; QUERY_TERMS &rarr; BM25 terms',{s:10.5,c:M})}
-  ${down(630,524,538)}
-
-  ${b(390,542,480,46)}
-  ${tx(402,561,'Pure SQL &mdash; join, GROUP BY, rank, fuse',{w:600})}
-  ${tx(402,577,'cosine = SUM(a.VAL &times; b.VAL), then BM25, then RRF',{s:10.5,c:M})}
-
-  ${tx(630,606,'&darr; ranked criteria, each citing its NCT ID',{s:11,w:600,a:'middle'})}
+  ${tx(88,528,'cosine = SUM(v.VAL &times; q.VAL)',{s:11.5,w:600,f:'ui-monospace,SFMono-Regular,Menlo,monospace'})}
+  ${tx(300,528,'&mdash; there is no vector index and no vector type. There does not need to be.',{s:11,c:M})}
 </svg>`;
 }
 
