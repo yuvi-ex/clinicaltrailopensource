@@ -115,3 +115,10 @@ python3 bin/ui.py     # http://127.0.0.1:8899/
 Stdlib only. Runs every question BOTH ways -- text alone and with the structured
 section filter -- side by side, and highlights in red any top-ranked row that came
 from the wrong criteria section. Preset buttons load the two known failures.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).
+
+The trial data in `data/` comes from [ClinicalTrials.gov](https://clinicaltrials.gov),
+a public US National Library of Medicine registry, and is not covered by this licence.
