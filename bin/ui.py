@@ -7,7 +7,7 @@ against the 20-connection ceiling. It imports bin/search.py rather than
 reimplementing anything, so the page, the CLI and the eval harness cannot
 disagree about what the retrieval does.
 """
-import json, os, sys, threading, webbrowser
+import json, os, re, sys, threading, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -30,6 +30,62 @@ PRESETS = [
      "AND t.INDICATION='NSCLC' AND t.PHASE='PHASE3' AND t.STATUS_GROUP='Open'"],
     ["An easy case", "interstitial lung disease or pneumonitis", "EXCLUSION", ""],
 ]
+
+# ---------------------------------------------------------------------------
+# THE FILTER PARAMETER IS UNTRUSTED INPUT.
+#
+# bin/search.py substitutes {{TRIAL_FILTER}} into the SQL template verbatim, and
+# exapump executes multi-statement scripts as the starter kit's ADMIN user. On
+# localhost that is a convenience; the moment this port is published -- a tunnel,
+# a LAN address, a port-forward -- it is an unauthenticated SQL console on the
+# database. So the HTTP surface does NOT accept SQL. It accepts equality clauses
+# against an allowlist of columns and REBUILDS the SQL from the parsed parts.
+#
+# The CLI keeps its free-form --filter: that path is a trusted local shell.
+FILTER_COLUMNS = {
+    "INDICATION", "PHASE", "PHASE_IS_STATED", "STATUS_GROUP", "OVERALL_STATUS",
+    "SPONSOR_TYPE", "LEAD_SPONSOR", "COMPARATOR_DESIGN",
+    "PRIMARY_ENDPOINT_CATEGORY", "START_YEAR", "NCT_ID", "ARM_COUNT",
+    "REGION_COUNT", "ENROLLMENT", "MIN_AGE_YEARS", "MAX_AGE_YEARS", "SEX",
+}
+# One clause: AND t.COLUMN = 'value'  |  AND t.COLUMN = 123
+_CLAUSE = re.compile(
+    r"""\s*AND\s+t\.(?P<col>[A-Z_][A-Z0-9_]*)\s*(?P<op>=|<>|!=|<=|>=|<|>)\s*"""
+    r"""(?:'(?P<str>[^';\\]*)'|(?P<num>-?\d+(?:\.\d+)?))\s*""",
+    re.IGNORECASE)
+
+
+def safe_filter(raw):
+    """Parse an allowlisted filter and rebuild it. Never passes input through.
+
+    Returns (sql, None) or (None, reason). Anything that does not parse whole is
+    refused rather than partially applied -- a filter that silently drops half of
+    what was asked for is worse than an error.
+    """
+    if not raw or not raw.strip():
+        return "", None
+    text, out = raw, []
+    while text.strip():
+        m = _CLAUSE.match(text)
+        if not m:
+            return None, ("Filter not understood. Use clauses like "
+                          "AND t.PHASE='PHASE3' — column names from the trial "
+                          "view, equality or comparison, no functions or "
+                          "subqueries.")
+        col = m.group("col").upper()
+        if col not in FILTER_COLUMNS:
+            return None, f"Column {col} is not filterable. Allowed: " + \
+                         ", ".join(sorted(FILTER_COLUMNS))
+        op = "<>" if m.group("op") == "!=" else m.group("op")
+        if m.group("num") is not None:
+            out.append(f"AND t.{col} {op} {m.group('num')}")
+        else:
+            # Rebuilt from the captured value, which the pattern already forbids
+            # quotes, semicolons and backslashes in.
+            out.append("AND t.%s %s '%s'" % (col, op, m.group("str")))
+        text = text[m.end():]
+    return " " + " ".join(out), None
+
 
 # The stats query set takes a couple of seconds; the page asks for it once on
 # load, so cache it and let a reload past the TTL pick up new data.
@@ -90,10 +146,14 @@ class H(BaseHTTPRequestHandler):
                                    "only_a": sorted(sa - sb),
                                    "only_b": sorted(sb - sa)})
             if u.path == "/search":
-                q = (p.get("q") or [""])[0]
+                q = (p.get("q") or [""])[0][:400]
                 section = (p.get("section") or [None])[0]
-                filt = (p.get("filter") or [""])[0]
-                topk = int((p.get("topk") or ["10"])[0])
+                filt, why = safe_filter((p.get("filter") or [""])[0])
+                if why:
+                    return self._json({"error": why})
+                # Bound the result set too: an unbounded topk on a published port
+                # is a cheap way to make the database do a lot of work.
+                topk = max(1, min(50, int((p.get("topk") or ["10"])[0])))
                 out = {}
                 for name, sec in (("text_only", None), ("with_section", section)):
                     sql = search.build(q, sec, filt, topk)
