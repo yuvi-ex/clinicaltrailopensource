@@ -151,10 +151,12 @@ svg{max-width:100%;height:auto;display:block}
 <!-- ================= PROBE ================= -->
 <section id="tab-probe">
   <div class="card">
-    <h2>Ask about eligibility criteria</h2>
-    <p class="note">Trials describe who may join as free prose, split into two halves:
-    <b>inclusion</b> (you must have this) and <b>exclusion</b> (you cannot have this).
-    Pick which half you mean, then compare the two answers below.</p>
+    <h2>Ask a question that needs both halves</h2>
+    <p class="note">The <b>question</b> searches eligibility prose &mdash; the half no
+    coded field can answer. The <b>filter</b> runs against the semantic layer &mdash;
+    phase, status, sponsor, geography. They execute as one statement, with the
+    structured filter applied <i>before</i> anything is scored, so the text search
+    never looks at a trial the filter already excluded.</p>
     <form onsubmit="go(event)">
       <label for="q">Your question</label>
       <input type="text" id="q" value="prior treatment with an anti-PD-1 or anti-PD-L1 antibody">
@@ -310,8 +312,9 @@ GROUP  BY v.NCT_ID, v.CHUNK_ID</pre>
 <section id="tab-results" hidden>
   <div class="tiles" id="ev-tiles"></div>
   <div class="card" style="margin-top:14px"><h2>Every question, measured twice</h2>
-    <p class="note">Text alone, then with the structured criteria-half filter applied
-    before scoring. The <b>difference</b> between those two columns is the whole claim.</p>
+    <p class="note">Text alone, then with the structured half applied before scoring.
+    This is the credibility close, not the pitch: the numbers below say how much the
+    structured half is worth, and the panel under them says where it buys nothing.</p>
     <div id="ev-table"></div></div>
   <div class="card"><h2>Two failures, not one</h2>
     <div class="kv" id="ev-fail"></div></div>
@@ -321,8 +324,12 @@ GROUP  BY v.NCT_ID, v.CHUNK_ID</pre>
 </div>
 
 <script>
-const TABS=[["probe","Probe"],["dataset","Dataset"],["model","Model"],
-            ["arch","Architecture"],["results","Results"]];
+/* Order is the ARGUMENT, not the build order. The platform claim sits second,
+   right after the demo, instead of fourth where nobody clicked it. Validation
+   closes, because "here is where it breaks" is a credibility move once the
+   claim has been made and a weakness if it opens. */
+const TABS=[["probe","Ask"],["arch","One engine"],["dataset","The data"],
+            ["model","The model"],["results","Validation"]];
 const nav=document.getElementById('nav');
 TABS.forEach(([id,label],i)=>{const b=document.createElement('button');
   b.textContent=label; b.setAttribute('role','tab');
