@@ -60,9 +60,46 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;color
 .bar{height:9px;background:var(--seq);border-radius:0 4px 4px 0;
  box-shadow:2px 0 0 0 var(--card)}   /* 4px rounded data-end, 2px surface gap */
 .barwrap{background:var(--seq-soft);border-radius:0 4px 4px 0;overflow:hidden}
-/* --- results --- */
-tr.wrong{background:var(--critical-bg)}
-tr.wrong td.sec{color:var(--critical);font-weight:700}
+/* --- results: one list, each row tagged with what the filter did to it --- */
+tr.gone{background:var(--critical-bg)}
+tr.gone td.crit{color:var(--critical)}
+tr.up{background:var(--good-bg)}
+.fate{
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+  font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+}
+.fate.f-gone{color:var(--critical)}
+.fate.f-up{color:var(--good)}
+.fate.f-kept{color:var(--mut);font-weight:600}
+.glyph{
+  display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;
+  font-size:9px;font-weight:700;color:#fff;
+}
+.f-gone .glyph{background:var(--critical)}
+.f-up .glyph{background:var(--good)}
+.f-kept .glyph{background:var(--line);color:var(--mut)}
+.rank{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--mut);
+}
+.rank b{color:var(--fg);font-weight:650}
+.rank .to{color:var(--good)}
+tr.gone .rank b{color:var(--critical)}
+.headline{
+  border:1px solid var(--critical);background:var(--critical-bg);
+  padding:15px 17px;margin-bottom:16px;
+}
+.headline.clean{border-color:var(--good);background:var(--good-bg)}
+.headline .big{
+  font-size:16.5px;font-weight:700;color:var(--critical);line-height:1.35;
+  margin-bottom:5px;
+}
+.headline.clean .big{color:var(--good)}
+.headline .why{font-size:13.5px;color:var(--fg2);max-width:76ch}
+.subhead{
+  font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);
+  padding:14px 0 4px;font-weight:600;
+}
 .tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;
  padding:1px 5px;border-radius:4px;border:1px solid currentColor;margin-left:5px;
  vertical-align:1px}
@@ -318,26 +355,92 @@ const tile=(v,k,x)=>'<div class="tile"><div class="v">'+v+'</div><div class="k">
 
 /* ---------------- probe ---------------- */
 let PRESETS=[];
+let TOTALS={};
 function mkPresets(){const pc=document.getElementById('presets');pc.innerHTML='';
   PRESETS.forEach(p=>{const b=document.createElement('button');b.type='button';
     b.textContent=p[0];b.onclick=()=>{document.getElementById('q').value=p[1];
       document.getElementById('section').value=p[2];
       document.getElementById('filter').value=p[3];go();};pc.appendChild(b);});}
 
-function rtable(rows,want){
-  if(!rows.length) return '<div class="spin">no rows</div>';
-  let h='<table><thead><tr><th>Criteria half</th><th class="n">Meaning</th>'
-   +'<th class="n">Keyword</th><th class="n">Rank score</th><th>NCT ID</th>'
-   +'<th>Phase</th><th>The criterion, as written</th></tr></thead><tbody>';
-  for(const r of rows){
-    const bad=want&&r.CRITERION_SECTION!==want;
-    h+='<tr class="'+(bad?'wrong':'')+'"><td class="sec">'+esc(r.CRITERION_SECTION)
-      +(bad?'<span class="tag">WRONG HALF</span>':'')+'</td>'
-      +'<td class="n">'+esc(r.VEC_SIM)+'</td><td class="n">'+esc(r.BM25)+'</td>'
-      +'<td class="n">'+esc(r.RRF)+'</td><td class="nct">'+esc(r.NCT_ID)+'</td>'
-      +'<td class="sec">'+esc(r.PHASE)+'</td><td>'+esc(r.CRITERION)+'</td></tr>';}
+const keyOf = r => r.NCT_ID + '#' + r.CHUNK_ID;
+
+/* One ranked list instead of two. Every row carries what the structured column
+   did to it, because two near-identical tables side by side make the reader diff
+   twenty rows by eye to find the one that changed -- and at a booth nobody does. */
+function diffTable(A, B, want){
+  if(!A.length) return '<div class="spin">no rows</div>';
+  const bRank = new Map(B.map((r,i)=>[keyOf(r), i+1]));
+  const aSeen = new Set(A.map(keyOf));
+  const rows = A.map((r,i)=>{
+    const wrong = want && r.CRITERION_SECTION !== want;
+    const to = bRank.get(keyOf(r)) || null;
+    // A row can survive the filter and still drop out of the visible top N,
+    // because removing candidates re-scores the whole ranking rather than just
+    // closing a gap. Labelling that "kept" would be a lie about what happened.
+    return {r, from:i+1, to, fate: wrong ? 'gone' : (to ? 'kept' : 'out')};
+  });
+  const promoted = B.map((r,i)=>({r, from:null, to:i+1, fate:'up'}))
+                    .filter(x=>!aSeen.has(keyOf(x.r)));
+
+  const FATE = {
+    gone:{cls:'f-gone', g:'\u2715', t:'Removed — wrong half'},
+    kept:{cls:'f-kept', g:'\u2022', t:'Kept'},
+    up:  {cls:'f-up',   g:'\u25B2', t:'Promoted into view'},
+    out: {cls:'f-kept',  g:'\u2193', t:'Fell below the cut'},
+  };
+  const line = x => {
+    const f = FATE[x.fate];
+    const rank = x.fate==='up'
+      ? '<span class="rank">&rarr; <b class="to">#'+x.to+'</b></span>'
+      : x.fate==='out'
+      ? '<span class="rank"><b>#'+x.from+'</b> &rarr; &mdash;</span>'
+      : x.to && x.to!==x.from
+        ? '<span class="rank"><b>#'+x.from+'</b> &rarr; <span class="to">#'+x.to+'</span></span>'
+        : '<span class="rank"><b>#'+(x.from||x.to)+'</b></span>';
+    return '<tr class="'+(x.fate==='gone'?'gone':x.fate==='up'?'up':'')+'">'
+      +'<td>'+rank+'</td>'
+      +'<td><span class="fate '+f.cls+'"><span class="glyph">'+f.g+'</span>'+f.t+'</span></td>'
+      +'<td class="sec">'+esc(x.r.CRITERION_SECTION)+'</td>'
+      +'<td class="n">'+esc(x.r.VEC_SIM)+'</td>'
+      +'<td class="nct">'+esc(x.r.NCT_ID)+'</td>'
+      +'<td class="'+(x.fate==='gone'?'crit':'')+'">'+esc(x.r.CRITERION)+'</td></tr>';
+  };
+  let h='<table><thead><tr><th>Rank</th><th>What the column did</th><th>Half</th>'
+   +'<th class="n">Meaning</th><th>NCT ID</th><th>The criterion, as written</th>'
+   +'</tr></thead><tbody>'+rows.map(line).join('');
+  if(promoted.length){
+    h+='<tr><td colspan="6" class="subhead">Rose into the top '+B.length
+      +' once the wrong half was removed</td></tr>'+promoted.map(line).join('');
+  }
   return h+'</tbody></table>';
 }
+
+/* The rank is the story, not the count. "1 of 10 wrong" reads as a 10% error
+   rate and gets shrugged at; "#4 of 268,912, inside what an agent would cite"
+   does not. */
+function headline(A, want){
+  const wrong = A.map((r,i)=>({r,rank:i+1})).filter(x=>x.r.CRITERION_SECTION!==want);
+  const corpus = TOTALS.chunks ? TOTALS.chunks.toLocaleString() : 'the corpus';
+  if(!wrong.length){
+    return '<div class="headline clean"><div class="big">Every top answer came from the '
+      +'half you asked for.</div><div class="why">Text search alone was already '
+      +'correct here — the structured column had nothing to remove. Try one of the '
+      +'failure presets to see where it is not.</div></div>';
+  }
+  const w = wrong[0];
+  const cited = w.rank <= 5;
+  return '<div class="headline"><div class="big">Ranked #'+w.rank+' out of '+corpus
+    +' criteria — and it says the opposite of what you asked.</div>'
+    +'<div class="why">'
+    +(cited ? 'An agent citing its top five sources <b>would quote this one</b>. '
+            : 'It sits just outside the usual citation window, which is luck rather than design. ')
+    +esc(w.r.NCT_ID)+' reads &ldquo;'+esc(w.r.CRITERION.slice(0,90))+'&rdquo; and is filed under '
+    +esc(w.r.CRITERION_SECTION)+'. '
+    +(wrong.length>1 ? wrong.length+' of the '+A.length+' rows shown are from the wrong half.'
+                     : 'Cosine cannot separate it from the correct answers.')
+    +'</div></div>';
+}
+
 async function go(ev){
   if(ev)ev.preventDefault();
   const q=document.getElementById('q').value,section=document.getElementById('section').value,
@@ -347,19 +450,14 @@ async function go(ev){
   try{
     const d=await(await fetch('/search?'+new URLSearchParams({q,section,filter,topk}))).json();
     if(d.error){out.innerHTML='<div class="card"><div class="flag">'+esc(d.error)+'</div></div>';return;}
-    const bad=d.text_only.rows.filter(x=>x.CRITERION_SECTION!==section).length;
-    out.innerHTML='<div class="grid two">'
-      +'<div class="card"><h2>Text alone</h2><p class="note">What a normal search would return</p>'
-      +rtable(d.text_only.rows,section)
-      +(bad?'<div class="flag"><b>'+bad+' of '+d.text_only.rows.length+'</b> top answers are from the '
-        +'wrong half of the criteria. They say the opposite of what you asked.</div>'
-        :'<div class="flag ok">All top answers are already in the half you asked for.</div>')
-      +'</div><div class="card"><h2>With the structured column</h2>'
-      +'<p class="note">Wrong-half sentences removed before scoring</p>'
-      +rtable(d.with_section.rows,section)
-      +'<div class="flag ok">No wrong-half answers remain. Not a better model &mdash; one column.</div>'
-      +'</div></div>'
-      +'<div class="card"><details><summary>The SQL that produced the left-hand table</summary>'
+    out.innerHTML=
+      headline(d.text_only.rows, section)
+      +'<div class="card"><h2>What the structured column changed</h2>'
+      +'<p class="note">One ranked list. Every row is tagged with what happened to it '
+      +'once the wrong half of the criteria was removed before scoring.</p>'
+      + diffTable(d.text_only.rows, d.with_section.rows, section)
+      +'</div>'
+      +'<div class="card"><details><summary>The SQL behind the unfiltered ranking</summary>'
       +'<pre style="margin-top:10px">'+esc(d.text_only.sql)+'</pre></details></div>';
   }catch(e){out.innerHTML='<div class="card"><div class="flag">'+esc(e)+'</div></div>';}
 }
@@ -476,7 +574,7 @@ function archSvg(t){
     '<div class="flag">Could not read the database: '+esc(e)+'</div>'; return; }
   if(d.error){ document.getElementById('ds-tiles').innerHTML=
     '<div class="flag">'+esc(d.error)+'</div>'; return; }
-  PRESETS=d.presets||[]; mkPresets();
+  PRESETS=d.presets||[]; mkPresets(); TOTALS=d.totals||{};
   const t=d.totals, sn=d.snapshot||{}, mm=d.model_meta||{};
 
   /* dataset */
