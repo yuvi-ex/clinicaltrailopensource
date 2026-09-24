@@ -24,4 +24,12 @@ xsql "SELECT ENDPOINT_CATEGORY, COUNT(*) AS N,
 
 say "3d. Comparator: half a WHERE clause, half retrieval"
 xsql "SELECT COMPARATOR_DESIGN, COUNT(*) AS N FROM CT.V_LANDSCAPE GROUP BY 1 ORDER BY N DESC;"
+say "3e. CRO persona tables — the same corpus, shaped for a dashboard"
+# Materialised and in their own schema: the dashboard harness profiles TABLES and
+# skips views, so the grain has to be unambiguous. Scope caveat is in the SQL --
+# the registry has no CRO field, so these describe the MARKET, not a portfolio.
+xsql -f "$KIT_ROOT/sql/06_cro_tables.sql" | tail -2
+xsql "SELECT 'CRO_GLOBAL' AS T, COUNT(*) AS N FROM CT_CRO.CRO_GLOBAL
+      UNION ALL SELECT 'CRO_REGION', COUNT(*) FROM CT_CRO.CRO_REGION;"
+
 say "STEP 3 DONE — say the 'unclassified' number out loud before anyone asks"

@@ -2,27 +2,18 @@
 """Live facts for the UI. Every number on the page comes from the database on
 request, so the page cannot drift from the data the way a hand-written figure
 in a slide does."""
-import csv, io, json, os, subprocess
+import json, os, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+import exasql
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def q(sql):
-    p = subprocess.run(["exapump", "sql", "-f", "csv"], input=sql,
-                       capture_output=True, text=True)
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr.strip()[:300])
-    # exapump frames results as: a "[1/1] <sql> N rows" banner, the CSV
-    # (header first), then a "N statements executed" footer. Do NOT sniff for a
-    # comma to find the header -- a single-column result like TERM has none,
-    # which silently yielded zero rows.
-    lines = p.stdout.splitlines()
-    start = next((i + 1 for i, l in enumerate(lines) if l.startswith("[")), 0)
-    body = [l for l in lines[start:]
-            if l.strip() and "statement executed" not in l]
-    if not body:
-        return []
-    return list(csv.DictReader(io.StringIO("\n".join(body))))
+    return exasql.rows(sql)
 
 
 def dist(sql, label="LABEL", value="N"):

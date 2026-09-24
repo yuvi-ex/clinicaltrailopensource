@@ -4,9 +4,14 @@
 Deliberately thin: the SQL is the artefact, this only substitutes placeholders
 and prints what it ran, so nothing about the retrieval hides in Python.
 """
-import argparse, csv, io, os, subprocess, sys
+import argparse, os, sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import exasql
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+ROOT = os.path.dirname(HERE)
 TMPL = os.path.join(ROOT, "sql", "05_hybrid_search.sql.tmpl")
 
 
@@ -29,18 +34,7 @@ def build(query, section=None, trial_filter="", topk=10):
 def run(sql, show=False):
     if show:
         print(sql, file=sys.stderr)
-    p = subprocess.run(["exapump", "sql", "-f", "csv"], input=sql,
-                       capture_output=True, text=True)
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr.strip() or p.stdout.strip())
-    # exapump prints a header line, the CSV, then a summary line.
-    lines = [l for l in p.stdout.splitlines()]
-    try:
-        i = next(i for i, l in enumerate(lines) if l.startswith("NCT_ID,"))
-    except StopIteration:
-        return []
-    body = [l for l in lines[i:] if l and not l.endswith("failed")]
-    return list(csv.DictReader(io.StringIO("\n".join(body))))
+    return exasql.rows(sql)
 
 
 def main():

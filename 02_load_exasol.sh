@@ -18,7 +18,7 @@ for pair in "trials.csv:CT.TRIALS" "trial_conditions.csv:CT.TRIAL_CONDITIONS" \
             "elig_chunks.csv:CT.ELIG_CHUNKS"; do
   f="${pair%%:*}"; t="${pair##*:}"
   printf '    %-26s -> %s\n' "$f" "$t"
-  exapump upload --table "$t" "$WORK/csv/$f" >/dev/null
+  exa_load "$t" "$WORK/csv/$f" >/dev/null
 done
 
 say "2d. What landed"

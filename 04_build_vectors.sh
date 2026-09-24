@@ -14,29 +14,36 @@ mkdir -p "$WORK/art"
 docker run --rm -v "$WORK/csv:/data:ro" -v "$WORK/art:/out" "$ML_IMAGE" \
   --chunks /data/elig_chunks.csv --out /out --dims "$DIMS"
 
-say "4c. Retrieval tables"
+say "4c. Parquet -> CSV for the loader"
+# Parquet is still what the embedding step writes. The bulk-load path is now the
+# Exasol CLI's IMPORT FROM LOCAL CSV FILE, which does not read Parquet, so the
+# artefacts are transcoded here -- in the same image, because pyarrow lives there
+# and not on the host.
+docker run --rm -v "$WORK/art:/out" --entrypoint python "$ML_IMAGE" \
+  /w/parquet_to_csv.py --dir /out \
+  chunk_len.parquet term_idf.parquet chunk_tokens.parquet elig_vectors.parquet
+
+say "4d. Retrieval tables"
 xsql -f "$KIT_ROOT/sql/02_retrieval_tables.sql" | tail -2
-for pair in "chunk_len.parquet:CT.CHUNK_LEN" "term_idf.parquet:CT.TERM_IDF" \
-            "chunk_tokens.parquet:CT.CHUNK_TOKENS" "elig_vectors.parquet:CT.ELIG_VECTORS"; do
+for pair in "chunk_len.csv:CT.CHUNK_LEN" "term_idf.csv:CT.TERM_IDF" \
+            "chunk_tokens.csv:CT.CHUNK_TOKENS" "elig_vectors.csv:CT.ELIG_VECTORS"; do
   f="${pair%%:*}"; t="${pair##*:}"
   printf '    %-24s -> %s\n' "$f" "$t"
-  exapump upload --table "$t" "$WORK/art/$f" >/dev/null
+  exa_load "$t" "$WORK/art/$f" >/dev/null
 done
 
-say "4d. Model -> BucketFS"
+say "4e. Model -> BucketFS"
 # BucketFS HTTP is not exposed on Personal (2581 refuses; writes want a password
-# nobody set). It is a directory on the node, and the SSH port moves on every
-# restart, so it is always read from deployment.json.
-node_ssh "mkdir -p $BFS_DIR/ct"
-node_scp "$WORK/art/elig_model.pkl" "$BFS_DIR/ct/elig_model.pkl"
-node_ssh "ls -lh $BFS_DIR/ct/elig_model.pkl"
+# nobody set). On the local backend it is a directory the VM SHARES WITH THE HOST,
+# so putting the model there is a plain copy -- see lib/common.sh.
+bfs_put "$WORK/art/elig_model.pkl" "ct/elig_model.pkl"
 
-say "4e. The query-side UDFs"
+say "4f. The query-side UDFs"
 xsql -f "$KIT_ROOT/sql/04_udfs.sql" | tail -2
 xsql "SELECT COUNT(*) AS DIMS, ROUND(SQRT(SUM(VAL*VAL)),4) AS NORM
       FROM (SELECT CT.EMBED_QUERY('test query') FROM DUAL);"
 ok "norm 1.0 means a dot product IS cosine"
 
-say "4f. How big the vector table is"
+say "4g. How big the vector table is"
 xsql "SELECT COUNT(*) AS VECTOR_ROWS, COUNT(DISTINCT NCT_ID) AS TRIALS FROM CT.ELIG_VECTORS;"
 say "STEP 4 DONE"

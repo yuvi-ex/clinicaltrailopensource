@@ -10,25 +10,16 @@ Reported per question:
   SECTION_PURITY  fraction of the top k drawn from the intended section --
                   this is what polarity blindness actually costs
 """
-import argparse, io, json, os, subprocess, sys, csv
+import argparse, json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+import exasql  # noqa: E402
 import search  # noqa: E402
 
 
 def sql_rows(sql):
-    p = subprocess.run(["exapump", "sql", "-f", "csv"], input=sql,
-                       capture_output=True, text=True)
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr.strip()[:400])
-    lines = p.stdout.splitlines()
-    try:
-        i = next(i for i, l in enumerate(lines) if l.startswith("NCT_ID,"))
-    except StopIteration:
-        return []
-    body = [l for l in lines[i:] if l and "statement" not in l]
-    return list(csv.DictReader(io.StringIO("\n".join(body))))
+    return exasql.rows(sql)
 
 
 def key(r):

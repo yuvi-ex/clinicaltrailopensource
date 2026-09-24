@@ -206,9 +206,11 @@ svg{max-width:100%;height:auto;display:block}
       <p class="note">One source. The snapshot is committed to the repository.</p>
       <div class="kv" id="ds-source"></div>
       <details><summary>Sources in the brief that are NOT used</summary>
-        <p class="note" style="margin-top:8px">EU CTR/CTIS, PubMed/OpenAlex, Drugs@FDA and
-        EMA EPARs are all absent. Each needs its own fetcher and identifier matching.
-        Nothing on this page draws on them.</p></details>
+        <p class="note" style="margin-top:8px"><b>PubMed IS now used</b> &mdash; publications
+        live in an Iceberg lake and join on the NCT number, which PubMed carries as a
+        DataBank accession. <b>EU CTR/CTIS, OpenAlex, Drugs@FDA and EMA EPARs are absent.</b>
+        Each needs its own fetcher, and each joins on something weaker than an NCT id
+        (drug name, or a second registry number that has to be reconciled).</p></details>
     </div>
     <div class="card"><h2>Criteria sentences by half</h2>
       <p class="note">The registry has <b>no</b> structured inclusion/exclusion field.

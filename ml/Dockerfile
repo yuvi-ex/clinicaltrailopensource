@@ -7,5 +7,5 @@ RUN pip install --no-cache-dir \
       "numpy==${NP_VERSION}" "scikit-learn==${SK_VERSION}" \
       "scipy==1.14.1" "joblib==1.4.2" "pyarrow==17.0.0"
 WORKDIR /w
-COPY build_vectors.py /w/
+COPY build_vectors.py parquet_to_csv.py /w/
 ENTRYPOINT ["python", "/w/build_vectors.py"]

@@ -13,9 +13,12 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "bin"))
+import exasql                     # noqa: E402
 import search                      # noqa: E402
 import stats as statsmod           # noqa: E402
-from ui_page import PAGE           # noqa: E402
+from ui_page import PAGE
+from story_page import PAGE as STORY
+import split as qsplit           # noqa: E402
 
 PORT = int(os.environ.get("PORT", "8899"))
 
@@ -35,7 +38,7 @@ PRESETS = [
 # THE FILTER PARAMETER IS UNTRUSTED INPUT.
 #
 # bin/search.py substitutes {{TRIAL_FILTER}} into the SQL template verbatim, and
-# exapump executes multi-statement scripts as the starter kit's ADMIN user. On
+# the Exasol CLI executes whatever it is handed as SYS. On
 # localhost that is a convenience; the moment this port is published -- a tunnel,
 # a LAN address, a port-forward -- it is an unauthenticated SQL console on the
 # database. So the HTTP surface does NOT accept SQL. It accepts equality clauses
@@ -135,6 +138,44 @@ class H(BaseHTTPRequestHandler):
         try:
             if u.path == "/":
                 return self._send(200, PAGE, "text/html; charset=utf-8")
+            if u.path == "/story":
+                return self._send(200, STORY, "text/html; charset=utf-8")
+            if u.path == "/api/story":
+                q = (p.get("q") or [""])[0][:400]
+                if not q.strip():
+                    return self._json({"error": "ask something"})
+                # The split is deterministic and comes from the layer's own
+                # vocabulary, so the filter it produces is already allowlisted by
+                # construction -- but it goes through the same guard as the probe
+                # page rather than around it.
+                sp = qsplit.split(q)
+                filt, why = safe_filter(sp["filter"])
+                if why:
+                    return self._json({"error": why})
+                sec = sp["section"]
+                sql_shown = search.build(sp["text"], sec, filt, 5)
+                # Fetch deeper than the page shows: the antonymy blind spot does
+                # not sit in the top 5, and pretending it does would be the one
+                # dishonest thing on the screen.
+                DEEP = 30
+                res, ms, deep = {}, 0, []
+                for name, use in (("text_only", None), ("with_section", sec)):
+                    rows, took = exasql.rows_timed(search.build(sp["text"], use, filt, DEEP))
+                    if name == "with_section":
+                        deep = rows
+                    res[name] = rows[:5]
+                    ms = max(ms, took)
+                return self._json({
+                    "split": sp,
+                    "section_clause": ("AND c.CRITERION_SECTION = '%s'" % sec) if sec else "",
+                    "sql": sql_shown,
+                    "scan": dict(cached_stats()["totals"], dims=96, elapsed_ms=ms,
+                                 vector_rows=cached_stats()["totals"]["vector_rows"],
+                                 criteria=cached_stats()["totals"]["chunks"]),
+                    "results": res,
+                    "blind_spot": qsplit.blind_spot(q, deep, sec),
+                    "deep_k": DEEP,
+                })
             if u.path == "/stats":
                 return self._json(cached_stats())
             if u.path == "/tokens":

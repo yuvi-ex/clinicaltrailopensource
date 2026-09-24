@@ -1,17 +1,115 @@
-# Clinical-trials hybrid retrieval on Exasol Personal Local
+# Clinical trial intelligence on Exasol
 
-A semantic layer plus hybrid retrieval over ClinicalTrials.gov, built so that
-the interesting part is **where it fails**.
+Ask a clinical-trial question in English. An agent writes the SQL, runs it against
+Exasol, and answers citing the trial IDs it used. Ask for a landscape instead and
+the same data produces a structured report you can send on.
+
+The point the demo makes is not that the engine is fast. It is that **"pembrolizumab
+in the US" is 538 trials, or 304, or 50**, depending on three judgements nobody
+usually writes down — and that a semantic layer is where those judgements belong.
 
 ```
-./01_snapshot.sh        # the snapshot ships with the repo; this only refreshes it
-./02_load_exasol.sh     # shred to tables, including 268,912 eligibility chunks
-./03_semantic_layer.sh  # indication, sponsor, phase, status, endpoint, geography
-./04_build_vectors.sh   # embed offline, load 25.8M vector rows, install the UDFs
-./05_search.sh          # the payoff, and the failure
-./06_eval.sh            # where it fails, measured
-./00_preflight.sh       # GO / NO-GO
+./lake/up.sh             # object storage + an Iceberg catalog (2 containers)
+./lake/install_engine.sh # the lakehouse engine into Exasol
+./02_load_exasol.sh      # shred the committed snapshot into tables
+./03_semantic_layer.sh   # the views, and the resolution layer
+./04_build_vectors.sh    # embed offline, load 25.8M rows, install the UDFs
+./00_preflight.sh        # GO / NO-GO, 15 checks
+./app/run.sh             # the demo, on http://127.0.0.1:8503
 ```
+
+## What it does
+
+**Three pages.** The challenge, the demo, and how Exasol does it.
+
+**An agent, over MCP.** Claude reaches the database through
+[`exasol-mcp-server`](https://github.com/exasol-labs/exasol-mcp-server): it reads
+the schema, writes its own SQL, runs it, and cites NCT ids. No query is written
+for it, and it reaches Iceberg tables in object storage the same way it reaches
+native ones, because a virtual schema is just a schema.
+
+Query execution is **off by default** in that server. Turn it on with
+`EXA_MCP_SETTINGS={"enable_read_query": true}`, or the agent can only describe
+the schema and never query it.
+
+**Report generation.** A keyword such as *"What is the current trial landscape for
+Pembrolizumab in US"* produces a structured report — scope, trials, sponsors,
+phase, status, geography, endpoints, publication linkage — downloadable as
+Markdown, and convertible with `bin/md2pdf.py`. The sections and their SQL are
+fixed, so the same keyword always produces the same document; the model writes
+only the summary, over numbers already computed.
+
+**A resolution layer** (`sql/07_resolution.sql`) that publishes its judgements
+instead of burying them:
+
+| Judgement | Measured on pembrolizumab |
+|---|---|
+| Which names are the same drug | 732 by literal name, **760** with aliases — 28 trials say only Keytruda or MK-3475 |
+| Which sponsors are one company | 4 strings roll up to Merck & Co.; **Merck KGaA is a different company** and stays separate |
+| What "in the US" means | **538** has-a-US-site · **304** US-only · *US-led is not derivable — the registry has no sponsor country* |
+
+Every report opens by stating which reading it took and what the alternatives
+would have given.
+
+## The second source, and the second storage tier
+
+Trials are in the warehouse. The evidence that a trial ever produced a *result*
+is not, so PubMed publications live in a **lakehouse** -- Iceberg tables on
+object storage -- and are never loaded into Exasol. They are read at query time
+by `exasol-labs/lakehouse-engine-rs`, a Rust UDF running DataFusion inside the
+database, and joined to native tables in one statement:
+
+```sql
+SELECT t.PHASE, COUNT(*) - COUNT(DISTINCT p.NCT_ID) AS NO_PUBLICATION
+FROM CT.V_LANDSCAPE t                                    -- native Exasol
+LEFT JOIN CT_LAKE.TRIAL_PUBLICATIONS p ON p.NCT_ID = t.NCT_ID  -- Parquet on S3
+WHERE t.STATUS_GROUP = 'Completed' AND t.PHASE_IS_STATED
+GROUP BY t.PHASE;
+```
+
+The join key is real: PubMed carries the registry number as a DataBank
+accession, so this is an equi-join on `NCT_ID`, not title matching.
+
+**65.8% of completed Phase 3 trials have no linked publication.** Say the caveat
+with the number: a paper that never cites its NCT number is invisible to this
+join, so it is a lower bound on reporting, not proof a trial went unpublished.
+
+Cost of the second tier, measured: a native count is ~330ms and a lake count
+~490ms, both including client connect time -- so reaching the lake costs about
+**160ms**, not 490.
+
+### Two things the vendor install path cannot do here
+
+- `deploy/scripts/install.sh` targets a Personal *local* deployment **over SSH**
+  and also requires `exapump`. This Personal build publishes no `sshPort` and
+  ships no `node_access.pem`. It does not matter: on the local backend the VM
+  shares `/exa` with the host, so BucketFS is a directory and "upload" is `cp`.
+  `lake/install_engine.sh` does what the installer would have done, directly.
+- The bundled `docker-compose.lakekeeper.yml` brings Keycloak, Postgres,
+  Lakekeeper and MinIO. `lake/docker-compose.yml` uses MinIO plus
+  `iceberg-rest-fixture` -- the same Iceberg REST interface, two containers
+  instead of five, because every container is one more thing that can fail to
+  start on a conference floor.
+
+### The failure that will waste your afternoon
+
+Every S3 request is signed with the **VM's** clock. After the host sleeps, that
+clock can freeze while the hardware clock stays right, and then every lake query
+fails with `403 PermissionDenied` / `RequestTimeTooSkewed` -- which reads exactly
+like bad credentials and is not. Both `lake/up.sh` and `00_preflight.sh` check
+the skew and print the fix, which needs no restart:
+
+```
+(cd ~/.exasol/personal/deployments/default/local/runtime && <launcher> run -- hwclock -s)
+```
+
+## What it needs
+
+`docker`, and an Exasol Personal deployment running locally (`exasol status`
+should say `database_ready`) with the PYTHON3 SLC installed. Everything reaches
+the database through the Exasol CLI: `exasol connect` for SQL, `IMPORT FROM
+LOCAL CSV FILE` for bulk load, and a plain `cp` into the BucketFS directory the
+VM shares with the host. There is no separate load tool and no SSH to the node.
 
 ## The one design idea
 
@@ -76,9 +174,14 @@ metastatic disease"* — **recall 0.15**, because the negation this time is in t
 
 ## A second failure the section filter cannot fix
 
-Ask for `EGFR mutation positive` and the top hit is *"EGFR mutation **negative**
-and ALK fusion negative"*. Here `negative` is **not** a stopword — it survives
-tokenisation intact. The vector space simply does not encode that it inverts the
+Ask for `EGFR mutation positive`, filtered to INCLUSION, and at **rank 13**
+comes *"EGFR mutation or ALK mutation was **negative**"* -- cosine 0.9455, in
+INCLUSION, the half we asked for. (The starkest example, *"EGFR mutation
+negative and ALK fusion negative"* in `NCT07633873`, sits at rank 52; an earlier
+draft of this file called it the top hit, which it is not -- the number here is
+measured, and `bin/ui.py` recomputes the rank on every run rather than quoting
+it, because a rank moves whenever the corpus does.) Here `negative` is **not** a
+stopword -- it survives tokenisation intact. The vector space simply does not encode that it inverts the
 meaning, and BM25 sees a term match. Both the right and wrong criteria sit in
 INCLUSION, so **the structured section filter offers no rescue at all**: recall
 stays at 0.65 even with it applied (`pol-04`).
@@ -105,6 +208,31 @@ looking in the wrong half.
   A transformer would retrieve better and would be **just as blind to `no`**.
 - The API advertises no rate limits, and the snapshot is committed anyway: a
   booth demo must never depend on the venue network.
+
+# The booth screen
+
+```
+./app/run.sh            # http://127.0.0.1:8503
+```
+
+A Streamlit page built as an ARGUMENT, not a tool, so it works with nobody
+standing next to it. Four acts, each **challenge → how Exasol addresses it →
+what the audience should notice**:
+
+| Act | Challenge | What answers it |
+|---|---|---|
+| 01 | Half the question has no column | a vector is 96 rows, cosine is a `GROUP BY` |
+| 02 | The registry omits more than it states | a layer that publishes its own coverage |
+| 03 | Similarity cannot see the word "no" | a column recovered from prose, filtered *before* scoring |
+| 04 | The data is never all in one place | a lakehouse virtual schema, joined in one statement |
+
+Every number is queried live when the page loads — nothing is typed in. Two of
+the four acts end by admitting a limit, which is the point: the stopword proof
+is computed by `CT.QUERY_TERMS` on the spot, and the antonymy blind spot reports
+its *current* rank rather than a remembered one.
+
+The second tab turns any question into SQL in front of the audience; the third
+is the scope board — what this demo will not claim.
 
 # Local probe UI
 

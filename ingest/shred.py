@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shred the snapshot into flat CSVs for exapump.
+"""Shred the snapshot into flat CSVs for the bulk loader.
 
 The important part is eligibility. ClinicalTrials.gov gives ONE free-text blob
 with no structured inclusion/exclusion split -- the split exists only as prose
@@ -77,7 +77,8 @@ def chunk_eligibility(text):
 def w(name, header):
     os.makedirs(OUT, exist_ok=True)
     f = open(os.path.join(OUT, name), "w", newline="", encoding="utf8")
-    # LF only. exapump chokes on CRLF.
+    # LF only, header row first: the loader passes SKIP=1 and CRLF corrupts the
+    # last column of every row.
     c = csv.writer(f, lineterminator="\n")
     c.writerow(header)
     return f, c

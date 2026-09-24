@@ -101,7 +101,7 @@ And the analytics? Same tables. No copy, no pipeline, no second model.
 Q
 
 say "5e. The dashboards read the same corpus the search reads"
-xsql "SELECT 'trials in the search corpus' AS SOURCE, COUNT(*) AS N FROM CT.TRIALS
+xsql "SELECT 'trials in the search corpus' AS CORPUS, COUNT(*) AS N FROM CT.TRIALS
       UNION ALL SELECT 'trials on the global board', COUNT(*) FROM CT_CRO.CRO_GLOBAL
       UNION ALL SELECT 'criteria behind screening burden', COUNT(*) FROM CT.ELIG_CHUNKS;"
 
