@@ -80,7 +80,9 @@ Cost of the second tier, measured: a native count is ~330ms and a lake count
 
 ### Two things the vendor install path cannot do here
 
-- `deploy/scripts/install.sh` targets a Personal *local* deployment **over SSH**
+- The lakehouse engine ships its own installer (`deploy/scripts/install.sh`, in
+  [exasol-labs/lakehouse-engine-rs](https://github.com/exasol-labs/lakehouse-engine-rs)).
+  It targets a Personal *local* deployment **over SSH**
   and also requires `exapump`. This Personal build publishes no `sshPort` and
   ships no `node_access.pem`. It does not matter: on the local backend the VM
   shares `/exa` with the host, so BucketFS is a directory and "upload" is `cp`.
@@ -209,30 +211,28 @@ looking in the wrong half.
 - The API advertises no rate limits, and the snapshot is committed anyway: a
   booth demo must never depend on the venue network.
 
-# The booth screen
+# The demo screen
 
 ```
 ./app/run.sh            # http://127.0.0.1:8503
 ```
 
-A Streamlit page built as an ARGUMENT, not a tool, so it works with nobody
-standing next to it. Four acts, each **challenge → how Exasol addresses it →
-what the audience should notice**:
+Three pages, built as an ARGUMENT rather than a tool, so it works with nobody
+standing next to it:
 
-| Act | Challenge | What answers it |
-|---|---|---|
-| 01 | Half the question has no column | a vector is 96 rows, cosine is a `GROUP BY` |
-| 02 | The registry omits more than it states | a layer that publishes its own coverage |
-| 03 | Similarity cannot see the word "no" | a column recovered from prose, filtered *before* scoring |
-| 04 | The data is never all in one place | a lakehouse virtual schema, joined in one statement |
+| Page | What it covers |
+|---|---|
+| 1 · The challenge | the four shapes the answer is spread across, and what one engine changes |
+| 2 · The demo | ask a question (agent writes the SQL) **or** generate a landscape report |
+| 3 · How Exasol does it | the architecture, vectors as rows, the virtual schema, and the limits |
 
-Every number is queried live when the page loads — nothing is typed in. Two of
-the four acts end by admitting a limit, which is the point: the stopword proof
-is computed by `CT.QUERY_TERMS` on the spot, and the antonymy blind spot reports
-its *current* rank rather than a remembered one.
+Every number is queried live when the page loads — nothing is typed in. A
+**Walkthrough** mode reduces the same argument to six full-screen steps for
+presenting to a room.
 
-The second tab turns any question into SQL in front of the audience; the third
-is the scope board — what this demo will not claim.
+Two of the pages end by admitting a limit, which is deliberate: the stopword
+proof is computed by `CT.QUERY_TERMS` on the spot, and the antonymy blind spot
+reports its *current* rank rather than a remembered one.
 
 # Local probe UI
 
