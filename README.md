@@ -78,32 +78,19 @@ Cost of the second tier, measured: a native count is ~330ms and a lake count
 ~490ms, both including client connect time -- so reaching the lake costs about
 **160ms**, not 490.
 
-### Two things the vendor install path cannot do here
+### How the lakehouse is installed here
 
-- The lakehouse engine ships its own installer (`deploy/scripts/install.sh`, in
-  [exasol-labs/lakehouse-engine-rs](https://github.com/exasol-labs/lakehouse-engine-rs)).
-  It targets a Personal *local* deployment **over SSH**
-  and also requires `exapump`. This Personal build publishes no `sshPort` and
-  ships no `node_access.pem`. It does not matter: on the local backend the VM
-  shares `/exa` with the host, so BucketFS is a directory and "upload" is `cp`.
-  `lake/install_engine.sh` does what the installer would have done, directly.
-- The bundled `docker-compose.lakekeeper.yml` brings Keycloak, Postgres,
-  Lakekeeper and MinIO. `lake/docker-compose.yml` uses MinIO plus
-  `iceberg-rest-fixture` -- the same Iceberg REST interface, two containers
-  instead of five, because every container is one more thing that can fail to
-  start on a conference floor.
+`lake/install_engine.sh` places the engine and its language container into the
+database's storage directory and registers the four scripts it needs. On the
+local backend the Exasol node shares that directory with the host, so the engine
+is installed with a file copy rather than an upload.
 
-### The failure that will waste your afternoon
+`lake/docker-compose.yml` runs MinIO for object storage and
+`apache/iceberg-rest-fixture` for the Iceberg catalog — two containers, the same
+REST interface a managed catalog exposes.
 
-Every S3 request is signed with the **VM's** clock. After the host sleeps, that
-clock can freeze while the hardware clock stays right, and then every lake query
-fails with `403 PermissionDenied` / `RequestTimeTooSkewed` -- which reads exactly
-like bad credentials and is not. Both `lake/up.sh` and `00_preflight.sh` check
-the skew and print the fix, which needs no restart:
-
-```
-(cd ~/.exasol/personal/deployments/default/local/runtime && <launcher> run -- hwclock -s)
-```
+`lake/up.sh` starts them and verifies that the database can reach both, and
+`00_preflight.sh` checks the same path as part of its GO / NO-GO report.
 
 ## What it needs
 
@@ -194,11 +181,10 @@ metastatic disease"* — **recall 0.15**, because the negation this time is in t
 
 Ask for `EGFR mutation positive`, filtered to INCLUSION, and at **rank 13**
 comes *"EGFR mutation or ALK mutation was **negative**"* -- cosine 0.9455, in
-INCLUSION, the half we asked for. (The starkest example, *"EGFR mutation
-negative and ALK fusion negative"* in `NCT07633873`, sits at rank 52; an earlier
-draft of this file called it the top hit, which it is not -- the number here is
-measured, and `bin/ui.py` recomputes the rank on every run rather than quoting
-it, because a rank moves whenever the corpus does.) Here `negative` is **not** a
+INCLUSION, the section that was asked for. A starker example, *"EGFR mutation
+negative and ALK fusion negative"* in `NCT07633873`, sits at rank 52. These ranks
+are recomputed on every run rather than quoted, because a rank changes whenever
+the corpus does. Here `negative` is **not** a
 stopword -- it survives tokenisation intact. The vector space simply does not encode that it inverts the
 meaning, and BM25 sees a term match. Both the right and wrong criteria sit in
 INCLUSION, so **the structured section filter offers no rescue at all**: recall
@@ -224,8 +210,8 @@ looking in the wrong half.
   18% of variance and its similarities are compressed into a narrow band near
   1.0, so *relative* order carries the signal and absolute scores mean little.
   A transformer would retrieve better and would be **just as blind to `no`**.
-- The API advertises no rate limits, and the snapshot is committed anyway: a
-  booth demo must never depend on the venue network.
+- The API advertises no rate limits, and the snapshot is committed anyway, so a
+  demonstration never depends on network access.
 
 # The demo screen
 
