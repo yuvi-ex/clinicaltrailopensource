@@ -107,11 +107,27 @@ the skew and print the fix, which needs no restart:
 
 ## What it needs
 
-`docker`, and an Exasol Personal deployment running locally (`exasol status`
-should say `database_ready`) with the PYTHON3 SLC installed. Everything reaches
-the database through the Exasol CLI: `exasol connect` for SQL, `IMPORT FROM
-LOCAL CSV FILE` for bulk load, and a plain `cp` into the BucketFS directory the
-VM shares with the host. There is no separate load tool and no SSH to the node.
+**Cloning this repo is not enough to see the UI.** The snapshots ship with it,
+but the database does not — the app opens on *"Exasol is not answering"* until
+you have loaded the data locally.
+
+To get from a clone to a running demo you need:
+
+| | Needed for |
+|---|---|
+| **Exasol Personal**, running locally (`exasol status` says `database_ready`) with the PYTHON3 SLC | everything |
+| **Docker** | the offline embedding step, and the two lakehouse containers |
+| Steps `02` → `04` | the tables, the views and the 25.8M vector rows. Roughly 15 minutes, most of it the embedding |
+| `lake/up.sh` + `lake/install_engine.sh` | the lakehouse sections only. Skip them and those sections hide themselves |
+| `ANTHROPIC_API_KEY` in `.env` | the agent and the report summary. Everything else works without it |
+
+`app/run.sh` builds its own virtualenv from `requirements.txt` on first run, so
+Python dependencies need no separate step.
+
+Everything reaches the database through the Exasol CLI: `exasol connect` for SQL,
+`IMPORT FROM LOCAL CSV FILE` for bulk load, and a plain `cp` into the storage
+directory the VM shares with the host. There is no separate load tool and no SSH
+to the node.
 
 ## The one design idea
 

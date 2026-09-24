@@ -30,11 +30,14 @@ if [ -n "$LAUNCHER" ] && [ -f "$RUNTIME/vm-runtime.json" ]; then
 fi
 
 VENV=".work/lakeenv"
-[ -x "$VENV/bin/streamlit" ] || {
+# Rebuild when the venv is missing OR when a dependency is absent -- the agent
+# imports anthropic lazily, so a half-built venv loads the page and then fails
+# only when somebody clicks.
+if [ ! -x "$VENV/bin/streamlit" ] || ! "$VENV/bin/python" -c "import anthropic, mcp" 2>/dev/null; then
   echo "creating the UI venv (one time)…"
   python3 -m venv "$VENV"
   "$VENV/bin/pip" install -q --upgrade pip
-  "$VENV/bin/pip" install -q streamlit "pyiceberg[s3fs,pyarrow]"
-}
+  "$VENV/bin/pip" install -q -r requirements.txt
+fi
 exec "$VENV/bin/streamlit" run app/app.py \
   --server.port "${PORT:-8503}" --server.headless true --browser.gatherUsageStats false
