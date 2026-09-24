@@ -232,37 +232,14 @@ with tabs[0]:
     bighead("The challenge",
             "Every clinical trial is public. The question a study team actually asks "
             "has no column to answer it.",
-            "ClinicalTrials.gov is complete, free and searchable. Phase, sponsor, status and "
-            "geography are all coded, and any warehouse can filter them. That part is solved. "
-            "The problem starts the moment somebody asks <em>what is the landscape for this drug, "
-            "in this country, right now?</em> — and expects an answer they can defend.")
+            "Phase, sponsor, status and geography are coded, and any warehouse can filter them. "
+            "The rest of the question is not.")
 
-    duo(
-        {"k": "Why this is hard",
-         "t": "The answer is spread across four shapes of data",
-         "p": [
-             "Some of it is coded and easy — phase, sponsor, country. Some of it is written as "
-             "free text and has no column at all: who a trial will <b>accept</b> lives inside one "
-             "<code>eligibilityCriteria</code> blob. Some of it is recorded but misleading: "
-             f"<b>{na['pct']}% of trials say the phase is NOT_APPLICABLE</b>, so a naive filter "
-             "silently drops a third of the landscape. And some of it is not in the warehouse at "
-             "all — the publication record lives in another system entirely.",
-             "The usual answer is four systems: a warehouse for the columns, a vector database for "
-             "the text, a query engine for the lake, and an application to stitch the three "
-             "together. Three copies of the same corpus, and a join that happens where nobody can "
-             "audit it — which is exactly the join a regulator will ask about.",
-         ]},
-        {"k": "What we built instead",
-         "t": "One engine, and an agent that can reach all of it",
-         "p": [
-             "Trials, criteria and vectors sit in Exasol. Publications stay as <b>Iceberg tables in "
-             "object storage</b> and are read in place through a virtual schema — never imported. "
-             "Both are queried in a single statement, because to the planner the lakehouse is just "
-             "another schema.",
-             "On top of that, <b>an agent over the Exasol MCP server</b>: it sees the schema, writes "
-             "its own SQL, and answers with trial IDs you can check. Ask it a question, or ask it "
-             "for a full landscape report — same engine, same data, same citations.",
-         ]})
+    kicker("One question", "Four kinds of data, three of them blocked")
+    html(f'<div class="archbox">{ARCH.four_shapes(na["pct"], other["pct"])}</div>')
+
+    kicker("What it takes to answer it", "Four systems, or one")
+    html(f'<div class="archbox">{ARCH.before_after()}</div>')
 
     triplet([
         ("One copy of the data", "Nothing exported to a vector store, nothing imported from the lake."),
@@ -270,11 +247,12 @@ with tabs[0]:
         ("One answer you can defend", "Every claim carries the NCT id it came from."),
     ])
 
-    kicker("What the layer admits about itself", "A dashboard that hides its own coverage is worse than none")
+    kicker("What the layer admits about itself",
+           "A dashboard that hides its own coverage is worse than none")
     kpis([
         {"k": "Trials loaded", "v": n(t["trials"]), "x": "NSCLC and breast, interventional, 2015+"},
         {"k": "Eligibility criteria", "v": n(t["criteria"]), "x": "one row per sentence, section recovered"},
-        {"k": "No usable phase", "v": f"{na['pct']}%", "x": "NOT_APPLICABLE — stated, never hidden", "tone": "hot"},
+        {"k": "No usable phase", "v": f"{na['pct']}%", "x": "NOT_APPLICABLE \u2014 stated, never hidden", "tone": "hot"},
         {"k": "Endpoints unclassifiable", "v": f"{other['pct']}%", "x": "free text, no controlled vocabulary", "tone": "hot"},
     ])
 

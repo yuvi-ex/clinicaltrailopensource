@@ -376,3 +376,112 @@ COMPONENTS = [
     ("Serving", "Streamlit",
      "This page. Every figure is queried live, so the narration cannot drift away from the data."),
 ]
+
+
+# ============================================================ page 1 diagrams
+# The challenge page was three blocks of prose. Both of its arguments are
+# spatial -- a question splitting four ways, and four systems collapsing into
+# one -- so they are drawn instead of described.
+
+def _pill(x, y, w, text, fill, ink, mono=False):
+    """A filled status pill. Deliberately NOT called _chip -- that name already
+    belongs to the wire-label helper above, and shadowing it silently broke the
+    main diagram."""
+    return (f'<rect x="{x}" y="{y}" width="{w}" height="26" rx="13" fill="{fill}"/>'
+            f'<text x="{x + w/2}" y="{y+17}" text-anchor="middle" '
+            f'font-family="{MONO if mono else SANS}" font-size="11.5" font-weight="700" '
+            f'fill="{ink}">{text}</text>')
+
+
+def four_shapes(na_pct, other_pct):
+    """One question, four kinds of data, three of them blocked."""
+    LANES = [
+        ("“Phase 3, NSCLC, recruiting”", "coded in the registry",
+         "a WHERE clause", "#E3F5F1", TEAL),
+        ("“… that exclude prior anti-PD-1”", "free text, no column at all",
+         "needs retrieval", "#FCEBEC", "#C4121F"),
+        ("“What phase are these?”", f"coded, but {na_pct}% say NOT_APPLICABLE",
+         "misleading", "#FEF3DC", AMBER),
+        ("“Did any of them publish?”", "not in the warehouse at all",
+         "another system", "#FCEBEC", "#C4121F"),
+    ]
+    p = ['<svg viewBox="0 0 1240 330" width="100%" role="img" '
+         'aria-label="One clinical trial question splits into four kinds of data. One is coded '
+         'and answerable with a WHERE clause; the other three are free text, misleadingly coded, '
+         'or held in another system entirely." xmlns="http://www.w3.org/2000/svg">',
+         f'<defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
+         f'markerHeight="6" orient="auto-start-reverse">'
+         f'<path d="M0,0 L10,5 L0,10 z" fill="{WIRE}"/></marker></defs>']
+    # the question
+    p.append(f'<rect x="40" y="96" width="290" height="138" rx="14" fill="#081226"/>')
+    p.append(f'<text x="64" y="132" font-family="{MONO}" font-size="10.5" font-weight="700" '
+             f'letter-spacing="2" fill="rgba(255,255,255,.55)">ONE QUESTION</text>')
+    for i, ln in enumerate(["Who else is competing", "for my Phase 3", "lung-cancer patients?"]):
+        p.append(f'<text x="64" y="{166 + i*24}" font-family="{HEAD}" font-size="17" '
+                 f'font-weight="700" fill="#ffffff">{ln}</text>')
+    bus = 382
+    ys = [70, 132, 194, 256]
+    p.append(f'<path d="M330,165 L{bus},165" stroke="{WIRE}" stroke-width="1.8" fill="none"/>')
+    p.append(f'<path d="M{bus},{ys[0]+29} L{bus},{ys[-1]+29}" stroke="{WIRE}" stroke-width="1.8"/>')
+    for (title, sub, verdict, fill, ink), y in zip(LANES, ys):
+        p.append(f'<path d="M{bus},{y+29} L434,{y+29}" stroke="{WIRE}" stroke-width="1.8" '
+                 f'marker-end="url(#ah2)"/>')
+        p.append(f'<circle cx="{bus}" cy="{y+29}" r="3" fill="{WIRE}"/>')
+        p.append(f'<rect x="440" y="{y}" width="500" height="58" rx="12" fill="#ffffff" '
+                 f'stroke="{LINE}"/>')
+        p.append(f'<rect x="440" y="{y}" width="4" height="58" rx="2" fill="{ink}"/>')
+        p.append(f'<text x="460" y="{y+24}" font-family="{HEAD}" font-size="14" font-weight="700" '
+                 f'fill="{INK}">{title}</text>')
+        p.append(f'<text x="460" y="{y+43}" font-family="{SANS}" font-size="12" '
+                 f'fill="{MUTED}">{sub}</text>')
+        p.append(_pill(968, y + 16, 210, verdict, fill, ink))
+    p.append('</svg>')
+    return "".join(p)
+
+
+def before_after():
+    """Four systems and three copies, against one engine."""
+    p = ['<svg viewBox="0 0 1240 300" width="100%" role="img" '
+         'aria-label="The usual architecture uses four systems and three copies of the corpus, '
+         'joined in application code. This demo uses one engine holding all of it, with an agent '
+         'reading the same schema." xmlns="http://www.w3.org/2000/svg">']
+    # --- the usual way
+    p.append(f'<text x="40" y="30" font-family="{MONO}" font-size="11" font-weight="700" '
+             f'letter-spacing="2" fill="{MUTED}">THE USUAL ANSWER</text>')
+    p.append(f'<rect x="40" y="46" width="530" height="228" rx="18" fill="rgba(196,18,31,.04)" '
+             f'stroke="{LINE}" stroke-dasharray="4 5"/>')
+    boxes = [("Warehouse", "the coded columns"), ("Vector database", "the free text"),
+             ("Lake query engine", "the publications"), ("An application", "joins the three")]
+    for i, (t, sub) in enumerate(boxes):
+        x, y = 62 + (i % 2) * 254, 70 + (i // 2) * 92
+        p.append(f'<rect x="{x}" y="{y}" width="234" height="70" rx="12" fill="#ffffff" '
+                 f'stroke="{LINE}"/>')
+        p.append(f'<text x="{x+16}" y="{y+27}" font-family="{HEAD}" font-size="14" '
+                 f'font-weight="700" fill="{INK}">{t}</text>')
+        p.append(f'<text x="{x+16}" y="{y+48}" font-family="{SANS}" font-size="12" '
+                 f'fill="{MUTED}">{sub}</text>')
+    p.append(_pill(62, 246, 232, "3 copies of the corpus", "#FCEBEC", "#C4121F"))
+    p.append(_pill(316, 246, 232, "the join is unauditable", "#FCEBEC", "#C4121F"))
+    # --- here
+    p.append(f'<text x="670" y="30" font-family="{MONO}" font-size="11" font-weight="700" '
+             f'letter-spacing="2" fill="{TEAL}">HERE</text>')
+    p.append(f'<rect x="670" y="46" width="530" height="228" rx="18" fill="rgba(31,160,139,.05)" '
+             f'stroke="{LINE}" stroke-dasharray="4 5"/>')
+    p.append(f'<rect x="692" y="70" width="486" height="118" rx="14" fill="#ffffff" '
+             f'stroke="{LINE}"/>')
+    p.append(f'<rect x="692" y="70" width="5" height="118" rx="2.5" fill="{TEAL_FILL}"/>')
+    p.append(f'<text x="714" y="98" font-family="{HEAD}" font-size="15" font-weight="700" '
+             f'fill="{INK}">One engine</text>')
+    for i, ln in enumerate(["columns, free text and vectors, together",
+                            "publications read in place from object storage",
+                            "one statement, one audit trail"]):
+        p.append(f'<text x="714" y="{122 + i*21}" font-family="{SANS}" font-size="12" '
+                 f'fill="{MUTED}">{ln}</text>')
+    p.append(f'<rect x="692" y="200" width="486" height="54" rx="12" fill="#081226"/>')
+    p.append(f'<text x="714" y="223" font-family="{HEAD}" font-size="14" font-weight="700" '
+             f'fill="#ffffff">An agent, over MCP</text>')
+    p.append(f'<text x="714" y="242" font-family="{SANS}" font-size="12" '
+             f'fill="rgba(255,255,255,.72)">reads the same schema, writes its own SQL</text>')
+    p.append(f'<path d="M934,200 L934,190" stroke="{WIRE}" stroke-width="1.8"/>')
+    p.append('</svg>')
+    return "".join(p)

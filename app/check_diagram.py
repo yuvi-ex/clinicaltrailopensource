@@ -13,9 +13,16 @@ sys.path.insert(0, "app")
 import architecture as A
 
 NS = "{http://www.w3.org/2000/svg}"
-svg = A.diagram({"trials": 12404, "criteria": 268912, "vector_rows": 25815552, "countries": 114},
-                {"papers": 3796, "links": 4627},
-                {"native_ms": 328, "lake_ms": 487, "delta_ms": 159})
+DIAGRAMS = {
+    "architecture": lambda: A.diagram(
+        {"trials": 12404, "criteria": 268912, "vector_rows": 25815552, "countries": 114},
+        {"papers": 3796, "links": 4627}, {"native_ms": 328, "lake_ms": 487, "delta_ms": 159}),
+    "four_shapes": lambda: A.four_shapes(34.4, 35.7),
+    "before_after": lambda: A.before_after(),
+}
+which = sys.argv[1] if len(sys.argv) > 1 else "architecture"
+print("=== %s ===" % which)
+svg = DIAGRAMS[which]()
 root = ET.fromstring(svg)
 fail = 0
 
