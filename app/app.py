@@ -27,6 +27,41 @@ st.markdown(CSS, unsafe_allow_html=True)
 DEMO_Q = "Phase 3 NSCLC trials that exclude patients with prior anti-PD-1 therapy"
 
 
+def result_table(rows, key=None):
+    """Render a query result as a readable table.
+
+    Auto-sizing gets this wrong in both directions: "stretch" spreads two
+    columns across the whole page and leaves a vast gap, "content" clips the
+    numbers. So the columns are configured explicitly -- humanised headers,
+    numbers right-aligned and narrow, free text given the room it needs.
+    """
+    if not rows:
+        return
+    LABEL = {"NCT_ID": "NCT ID", "N": "Trials", "TRIALS": "Trials", "PCT": "% of scope",
+             "PMID": "PubMed ID", "SIM": "Similarity", "VEC_SIM": "Cosine",
+             "LEAD_SPONSOR": "Lead sponsor", "SPONSOR_GROUP": "Sponsor",
+             "SPONSOR_TYPE": "Type", "RAW_NAMES": "Registry names",
+             "BRIEF_TITLE": "Title", "CRITERION": "Criterion",
+             "CRITERION_SECTION": "Section", "ENDPOINT_CATEGORY": "Primary endpoint",
+             "STATUS_GROUP": "Status", "ENROLLMENT": "Enrolment",
+             "START_YEAR": "Started", "N_COUNTRIES": "Countries",
+             "THIS_REPORT": "This report", "THE_ALTERNATIVE": "The alternative"}
+    WIDE = {"BRIEF_TITLE", "TITLE", "CRITERION", "CHUNK_TEXT", "RULE_TEXT",
+            "THE_ALTERNATIVE", "LEAD_SPONSOR", "SPONSOR_GROUP", "JUDGEMENT", "APPLIED"}
+    cfg, cols = {}, list(rows[0])
+    for c in cols:
+        label = LABEL.get(c, c.replace("_", " ").capitalize())
+        numeric = all(isinstance(r.get(c), (int, float)) or
+                      (isinstance(r.get(c), str) and r[c].replace(".", "", 1).lstrip("-").isdigit())
+                      for r in rows if r.get(c) not in (None, ""))
+        if numeric:
+            cfg[c] = st.column_config.NumberColumn(label, width="small")
+        else:
+            cfg[c] = st.column_config.TextColumn(
+                label, width="large" if c in WIDE else "medium")
+    st.dataframe(rows, hide_index=True, width="stretch", column_config=cfg, key=key)
+
+
 def logo(variant="dark"):
     """Exasol's mark, inlined so the page needs no network.
 
@@ -274,11 +309,14 @@ with tabs[1]:
 
     # ---------------------------------------------------------------- ask
     if mode2 == "Ask a question":
-        aq = st.selectbox("Ask", AGENT.SIMPLE_PRESETS, label_visibility="collapsed")
-        custom = st.text_input("or type your own", value="",
-                               placeholder="ask anything about the trials…",
-                               label_visibility="collapsed")
+        qc1, qc2 = st.columns([3, 2])
+        with qc1:
+            aq = st.selectbox("Pick a question", AGENT.SIMPLE_PRESETS)
+        with qc2:
+            custom = st.text_input("Or write your own",
+                                   placeholder="ask anything about the trials…")
         question = custom.strip() or aq
+        st.caption(f"Asking: **{question}**")
         if st.button("Ask the agent", disabled=not AGENT.have_key(), type="primary"):
             with st.spinner("the agent is writing SQL…"):
                 st.session_state["simple_run"] = (question, AGENT.ask_simple(question))
@@ -291,7 +329,7 @@ with tabs[1]:
             else:
                 st.markdown(tr["answer"])
                 if tr.get("rows"):
-                    st.dataframe(tr["rows"], width="stretch", hide_index=True)
+                    result_table(tr["rows"], key="agent_rows")
                 final_sql = tr["sql"][-1] if tr["sql"] else ""
                 if final_sql:
                     kicker("Citation", "The statement that produced this answer")
@@ -303,11 +341,14 @@ with tabs[1]:
 
     # ---------------------------------------------------------------- report
     else:
-        rq = st.selectbox("Report on", REPORT.PRESETS, label_visibility="collapsed")
-        rcustom = st.text_input("or type a keyword", value="",
-                                placeholder="e.g. Osimertinib for NSCLC in Japan",
-                                label_visibility="collapsed")
+        rc1, rc2 = st.columns([3, 2])
+        with rc1:
+            rq = st.selectbox("Pick a landscape", REPORT.PRESETS)
+        with rc2:
+            rcustom = st.text_input("Or write a keyword",
+                                    placeholder="e.g. Osimertinib for NSCLC in Japan")
         keyword = rcustom.strip() or rq
+        st.caption(f"Reporting on: **{keyword}**")
         if st.button("Generate report", disabled=not AGENT.have_key(), type="primary"):
             with st.spinner("running the report statements…"):
                 st.session_state["report"] = (keyword, REPORT.generate(keyword, lake_ok=h["lake"]))
@@ -332,7 +373,7 @@ with tabs[1]:
                 if sec["error"]:
                     st.error(sec["error"])
                 elif sec["rows"]:
-                    st.dataframe(sec["rows"], width="stretch", hide_index=True)
+                    result_table(sec["rows"], key=f"sec_{sec['title']}")
                 else:
                     st.info("**Data Not Available** — no rows for this section within the scope above.")
                 with st.expander("the statement behind this section"):

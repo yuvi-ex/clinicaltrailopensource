@@ -40,6 +40,8 @@ _SHEET = f"""
   --card:rgba(255,255,255,0.86);
   --shadow:0 18px 45px rgba(8,18,38,0.09);
 }}
+*, *::before, *::after {{ box-sizing:border-box; }}
+html, body {{ overflow-x:hidden; }}
 html, body, [class*="css"] {{ font-family:"Figtree",sans-serif; color:var(--ink); }}
 .stApp {{
   background:
@@ -50,6 +52,9 @@ html, body, [class*="css"] {{ font-family:"Figtree",sans-serif; color:var(--ink)
 .block-container {{ padding:1.4rem 2.2rem 3rem !important; max-width:100% !important; }}
 @media (min-width:1700px) {{ .block-container {{ padding-left:3.5rem !important;
   padding-right:3.5rem !important; }} }}
+/* Prose stays at a readable measure even when the page is full width -- a line
+   of body text 1800px wide is unreadable, however much room there is. */
+.section-copy, .lede2, .dcard p, .lanex p, .pain .a, .tri .t {{ max-width:74ch; }}
 h1,h2,h3 {{ font-family:"Figtree",sans-serif; letter-spacing:-0.03em; color:var(--ink); }}
 code, pre, .mono {{ font-family:"JetBrains Mono",monospace !important; }}
 [data-testid="stSidebar"], [data-testid="collapsedControl"], [data-testid="stToolbar"],
