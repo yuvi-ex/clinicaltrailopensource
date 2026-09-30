@@ -237,9 +237,9 @@ GROUP BY 1 ORDER BY TRIALS DESC LIMIT 10"""))
         S.append(_section("Publication linkage",
                           "Native trial data joined to Iceberg tables in object storage, in one statement. "
                           "A lower bound: a paper that never cites its NCT number is invisible here.", f"""
-SELECT COUNT(*) AS COMPLETED_TRIALS,
+SELECT COUNT(DISTINCT t.NCT_ID) AS COMPLETED_TRIALS,
        COUNT(DISTINCT p.NCT_ID) AS WITH_A_LINKED_PAPER,
-       COUNT(*) - COUNT(DISTINCT p.NCT_ID) AS NO_LINKED_PAPER
+       COUNT(DISTINCT t.NCT_ID) - COUNT(DISTINCT p.NCT_ID) AS NO_LINKED_PAPER
 FROM CT.V_TRIAL_RESOLVED t
 LEFT JOIN CT_LAKE.TRIAL_PUBLICATIONS p ON p.NCT_ID = t.NCT_ID
 WHERE {w} AND t.STATUS_GROUP = 'Completed'"""))

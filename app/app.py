@@ -207,7 +207,7 @@ html(f'<div class="pagehead">{logo("dark")}'
 html(f"""
 <section class="hero-shell">
   <div class="hero-eyebrow">Clinical Trial Intelligence &middot; Live Demo</div>
-  <div class="hero-title">&ldquo;Pembrolizumab in the US&rdquo; is 538 trials. Or 304. Or 50.</div>
+  <div class="hero-title">&ldquo;Pembrolizumab in the US&rdquo; is 538 trials. Or 304.</div>
   <div class="hero-copy">
     Three judgements decide which number you get: which brand names are the same drug,
     whether &ldquo;in the US&rdquo; means <em>a</em> US site or <em>only</em> US sites, and

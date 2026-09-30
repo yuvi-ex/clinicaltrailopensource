@@ -5,18 +5,28 @@ Exasol, and answers citing the trial IDs it used. Ask for a landscape instead an
 the same data produces a structured report you can send on.
 
 The point the demo makes is not that the engine is fast. It is that **"pembrolizumab
-in the US" is 538 trials, or 304, or 50**, depending on three judgements nobody
-usually writes down — and that a semantic layer is where those judgements belong.
+in the US" is 538 trials, or 304** — depending on judgements nobody usually writes
+down — and that a semantic layer is where those judgements belong. A third reading,
+*US-led*, is the sharper point: the registry records no sponsor country, so it
+cannot be derived at all, and the layer says so rather than guessing.
+
+**First:** you need **Exasol Personal running locally with the PYTHON3 SLC**, and
+Docker. A clone alone will not show the UI — see [What it needs](#what-it-needs).
 
 ```
-./lake/up.sh             # object storage + an Iceberg catalog (2 containers)
-./lake/install_engine.sh # the lakehouse engine into Exasol
+./lake/up.sh             # OPTIONAL: object storage + Iceberg catalog (2 containers)
+./lake/install_engine.sh # OPTIONAL: the lakehouse engine into Exasol
 ./02_load_exasol.sh      # shred the committed snapshot into tables
 ./03_semantic_layer.sh   # the views, and the resolution layer
-./04_build_vectors.sh    # embed offline, load 25.8M rows, install the UDFs
-./00_preflight.sh        # GO / NO-GO, 15 checks
+./04_build_vectors.sh    # embed offline, load 25.8M rows, install the UDFs  (~15 min)
+./00_preflight.sh        # GO / NO-GO, 15 checks -- runs LAST, it verifies the result
 ./app/run.sh             # the demo, on http://127.0.0.1:8503
 ```
+
+There is no `01` step here on purpose: `01_snapshot.sh` refetches the data from
+ClinicalTrials.gov, and the snapshot is already committed, so you skip it. Skip
+the two `lake/` steps too if you do not want the lakehouse — those sections of
+the page then hide themselves rather than erroring.
 
 ## What it does
 
@@ -27,10 +37,6 @@ usually writes down — and that a semantic layer is where those judgements belo
 the schema, writes its own SQL, runs it, and cites NCT ids. No query is written
 for it, and it reaches Iceberg tables in object storage the same way it reaches
 native ones, because a virtual schema is just a schema.
-
-Query execution is **off by default** in that server. Turn it on with
-`EXA_MCP_SETTINGS={"enable_read_query": true}`, or the agent can only describe
-the schema and never query it.
 
 **Report generation.** A keyword such as *"What is the current trial landscape for
 Pembrolizumab in US"* produces a structured report — scope, trials, sponsors,
@@ -54,13 +60,13 @@ would have given.
 ## The second source, and the second storage tier
 
 Trials are in the warehouse. The evidence that a trial ever produced a *result*
-is not, so PubMed publications live in a **lakehouse** -- Iceberg tables on
-object storage -- and are never loaded into Exasol. They are read at query time
+is not, so PubMed publications live in a **lakehouse** — Iceberg tables on
+object storage — and are never loaded into Exasol. They are read at query time
 by `exasol-labs/lakehouse-engine-rs`, a Rust UDF running DataFusion inside the
 database, and joined to native tables in one statement:
 
 ```sql
-SELECT t.PHASE, COUNT(*) - COUNT(DISTINCT p.NCT_ID) AS NO_PUBLICATION
+SELECT t.PHASE, COUNT(DISTINCT t.NCT_ID) - COUNT(DISTINCT p.NCT_ID) AS NO_PUBLICATION
 FROM CT.V_LANDSCAPE t                                    -- native Exasol
 LEFT JOIN CT_LAKE.TRIAL_PUBLICATIONS p ON p.NCT_ID = t.NCT_ID  -- Parquet on S3
 WHERE t.STATUS_GROUP = 'Completed' AND t.PHASE_IS_STATED
@@ -70,12 +76,18 @@ GROUP BY t.PHASE;
 The join key is real: PubMed carries the registry number as a DataBank
 accession, so this is an equi-join on `NCT_ID`, not title matching.
 
-**65.8% of completed Phase 3 trials have no linked publication.** Say the caveat
-with the number: a paper that never cites its NCT number is invisible to this
-join, so it is a lower bound on reporting, not proof a trial went unpublished.
+Say the caveat with whatever number this returns: a paper that never cites its
+NCT number is invisible to this join, so the result is a lower bound on
+reporting, not proof a trial went unpublished.
+
+> **This figure is being recomputed.** An earlier version of this README quoted
+> 65.8%, produced by a query that used `COUNT(*)` after the `LEFT JOIN`. Because
+> a trial with three linked papers contributes three rows, that inflated both the
+> denominator and the unpublished count. The query above is corrected; the number
+> will be restored once it has been rerun against a freshly loaded database.
 
 Cost of the second tier, measured: a native count is ~330ms and a lake count
-~490ms, both including client connect time -- so reaching the lake costs about
+~490ms, both including client connect time — so reaching the lake costs about
 **160ms**, not 490.
 
 ### How the lakehouse is installed here
@@ -111,6 +123,25 @@ To get from a clone to a running demo you need:
 `app/run.sh` builds its own virtualenv from `requirements.txt` on first run, so
 Python dependencies need no separate step.
 
+### What the agent connects as
+
+Query execution is **off by default** in `exasol-mcp-server`. The app turns it on
+by passing `EXA_MCP_SETTINGS={"enable_read_query": true, "default_row_limit": 50}`;
+without it the agent can describe the schema but never query it.
+
+**Be aware that this demo connects as `sys`, the Exasol superuser.** The only
+thing keeping the agent read-only is that MCP setting — a client-side toggle, not
+a database grant. That is fine for a local demo on a disposable deployment and
+**is not a pattern to copy into anything shared**: create a user with `SELECT`
+on the `CT` schema and connect as that instead.
+
+| | |
+|---|---|
+| Model | `claude-opus-5` |
+| Rough cost | a few cents per question; a full landscape report is one extra call over precomputed numbers |
+| Row limit | 50 per tool call |
+| Without `ANTHROPIC_API_KEY` | every page still works except the agent tab and the report's written summary |
+
 Everything reaches the database through the Exasol CLI: `exasol connect` for SQL,
 `IMPORT FROM LOCAL CSV FILE` for bulk load, and a plain `cp` into the storage
 directory the VM shares with the host. There is no separate load tool and no SSH
@@ -145,8 +176,8 @@ reads the committed snapshots directly.
 
 ## The one design idea
 
-Exasol has no vector type and no vector index. So vectors are stored **long and
-narrow** — one row per dimension — and cosine similarity is an ordinary join and
+Exasol has no vector type and no vector index (**as of Exasol 2026.2**, the
+version below). So vectors are stored **long and narrow** — one row per dimension — and cosine similarity is an ordinary join and
 `GROUP BY`:
 
 ```sql
@@ -156,7 +187,8 @@ GROUP BY v.NCT_ID, v.CHUNK_ID
 ```
 
 Vectors are L2-normalised at build time, so a dot product *is* cosine. 25.8M
-rows scan in about 5 seconds. Everything expensive — the TF-IDF fit, the SVD —
+rows scan in about 5 seconds **on the machine in Tested on** — that figure is
+hardware- and VM-bound, so treat it as an order of magnitude, not a benchmark. Everything expensive — the TF-IDF fit, the SVD —
 happens offline in Docker with sklearn pinned to the version the Exasol SLC
 ships, because otherwise the pickle will not unpickle inside the UDF.
 
@@ -178,8 +210,9 @@ Ask for trials that *exclude* prior PD-1 exposure and the fourth hit is
 `NCT02595866`, whose criterion reads **"No prior treatment with anti-PD-1 or
 anti-PD-L1"** — in the INCLUSION section. The opposite of the question.
 
-Cosine cannot separate it: **0.9987 against 0.9990**. BM25 scores it *higher*
-than two correct rows. The reason is one query away:
+Cosine cannot separate it: the wrong-section hit scores **0.9987** against
+**0.9990** for the lowest correctly-ranked row above it — a gap of 0.0003.
+BM25 scores it *higher* than two correct rows. The reason is one query away:
 
 ```sql
 SELECT TERM FROM (SELECT CT.QUERY_TERMS('No prior treatment with anti-PD-1') FROM DUAL);
@@ -196,9 +229,15 @@ column, applied before scoring:
 | | recall@20 | section purity |
 |---|---|---|
 | text alone | 0.675 | 0.763 |
-| with the structured section filter | **0.858** | **1.000** |
-| — hybrid questions | 0.713 → 0.925 | 0.769 → 1.000 |
-| — polarity questions | 0.600 → **0.725** | 0.750 → 1.000 |
+| with the structured section filter | **0.858** | 1.000 |
+| — hybrid questions (8) | 0.713 → 0.925 | 0.769 → 1.000 |
+| — polarity questions (4) | 0.600 → **0.725** | 0.750 → 1.000 |
+
+**Read the recall column, not the purity column.** Purity of 1.000 is true by
+construction: once the query filters to one section, every hit comes from that
+section by definition. It is reported only to show the filter does what it says.
+The finding is recall — 0.675 → 0.858 across 12 questions, without retraining
+anything.
 
 The worst single case is `pol-02`, *"no prior systemic chemotherapy for
 metastatic disease"* — **recall 0.15**, because the negation this time is in the
@@ -207,19 +246,20 @@ metastatic disease"* — **recall 0.15**, because the negation this time is in t
 ## A second failure the section filter cannot fix
 
 Ask for `EGFR mutation positive`, filtered to INCLUSION, and at **rank 13**
-comes *"EGFR mutation or ALK mutation was **negative**"* -- cosine 0.9455, in
-INCLUSION, the section that was asked for. A starker example, *"EGFR mutation
-negative and ALK fusion negative"* in `NCT07633873`, sits at rank 52. These ranks
+comes *"EGFR mutation or ALK mutation was **negative**"* — cosine 0.9455, in
+INCLUSION, the section that was asked for. A more clearly opposite example — *"EGFR mutation
+negative and ALK fusion negative"* in `NCT07633873`, where both terms are negated —
+sits further down at rank 52. These ranks
 are recomputed on every run rather than quoted, because a rank changes whenever
 the corpus does. Here `negative` is **not** a
-stopword -- it survives tokenisation intact. The vector space simply does not encode that it inverts the
+stopword — it survives tokenisation intact. The vector space simply does not encode that it inverts the
 meaning, and BM25 sees a term match. Both the right and wrong criteria sit in
 INCLUSION, so **the structured section filter offers no rescue at all**: recall
 stays at 0.65 even with it applied (`pol-04`).
 
 So there are two distinct polarity failures, not one:
 
-| | mechanism | fixable by the section column? |
+| Failure | mechanism | fixable by the section column? |
 |---|---|---|
 | "no prior treatment with X" | stopword deletion — `no` is removed before scoring | Yes, partly |
 | "EGFR mutation negative" | antonymy — the token survives, the meaning does not | **No** |
@@ -230,15 +270,21 @@ looking in the wrong half.
 
 ## Honesty
 
-- All eval gold sets are `snapshot-sql`: reproducible predicates over the loaded
-  data, **not** an independent ground truth. Questions derived from published
-  landscape reviews would be a stronger test and are not included.
+- **The eval is circular, and the recall gain is overstated because of it.** All
+  12 gold sets are `snapshot-sql` — predicates over the loaded data — and all 12
+  select on `CRITERION_SECTION`, the very column whose use is being credited with
+  the improvement. A gold set defined by a column will reward filtering on that
+  column. The measurement is reproducible and auditable; it is **not** independent
+  evidence, and the true gain against a gold set built without that column is
+  unknown. Questions derived from published landscape reviews — ground truth
+  assembled by people who never saw this pipeline — would settle it, and are not
+  included.
 - The vector side is TF-IDF + 96-dim SVD, not a transformer. It explains only
   18% of variance and its similarities are compressed into a narrow band near
   1.0, so *relative* order carries the signal and absolute scores mean little.
   A transformer would retrieve better and would be **just as blind to `no`**.
-- The API advertises no rate limits, and the snapshot is committed anyway, so a
-  demonstration never depends on network access.
+- ClinicalTrials.gov's API publishes no rate limits, but the snapshot is committed
+  to this repo regardless, so a demonstration never depends on the network.
 
 # The demo screen
 
@@ -246,7 +292,7 @@ looking in the wrong half.
 ./app/run.sh            # http://127.0.0.1:8503
 ```
 
-Three pages, built as an ARGUMENT rather than a tool, so it works with nobody
+Three pages, built as an *argument* rather than a tool, so it works with nobody
 standing next to it:
 
 | Page | What it covers |
@@ -263,9 +309,30 @@ Two of the pages end by admitting a limit, which is deliberate: the stopword
 proof is computed by `CT.QUERY_TERMS` on the spot, and the antonymy blind spot
 reports its *current* rank rather than a remembered one.
 
+## Tested on
+
+Every figure in this README was produced on this configuration. Timings in
+particular will move with hardware and VM size.
+
+| | |
+|---|---|
+| Exasol | Personal **2.3.0**, engine **2026.2**, single node |
+| VM | 2 vCPU, Apple Virtualization framework |
+| Host | macOS 26.6.1, Apple silicon |
+| Python | 3.12+, dependencies pinned in `requirements.txt` |
+| Containers | Docker Desktop, for the offline embedding step and the two lake containers |
+| Model | `claude-opus-5` via `exasol-mcp-server` |
+
 ## Licence
 
 MIT — see [LICENSE](LICENSE).
 
-The trial data in `data/` comes from [ClinicalTrials.gov](https://clinicaltrials.gov),
-a public US National Library of Medicine registry, and is not covered by this licence.
+The data in `data/` is not covered by this licence:
+
+- `trials_snapshot.json.gz` — [ClinicalTrials.gov](https://clinicaltrials.gov), a
+  public registry of the US National Library of Medicine. See their
+  [terms and conditions](https://clinicaltrials.gov/about-site/terms-conditions).
+- `pubmed_snapshot.json.gz` — [PubMed](https://pubmed.ncbi.nlm.nih.gov/), also NLM,
+  under its own [copyright and reuse terms](https://www.ncbi.nlm.nih.gov/home/about/policies/).
+  Records are bibliographic metadata; individual abstracts may carry publisher
+  copyright, and reuse beyond this demo is your responsibility to check.

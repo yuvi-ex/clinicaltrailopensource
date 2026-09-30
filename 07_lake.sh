@@ -44,10 +44,11 @@ NOTE
 
 say "7c. One statement, two storage tiers"
 xsql "SELECT t.PHASE,
-             COUNT(*)                                                           AS COMPLETED,
+             COUNT(DISTINCT t.NCT_ID)                                           AS COMPLETED,
              COUNT(DISTINCT p.NCT_ID)                                           AS PUBLISHED,
-             COUNT(*) - COUNT(DISTINCT p.NCT_ID)                                AS NO_PUBLICATION,
-             ROUND(100.0*(COUNT(*)-COUNT(DISTINCT p.NCT_ID))/COUNT(*),1)        AS PCT
+             COUNT(DISTINCT t.NCT_ID) - COUNT(DISTINCT p.NCT_ID)                AS NO_PUBLICATION,
+             ROUND(100.0*(COUNT(DISTINCT t.NCT_ID)-COUNT(DISTINCT p.NCT_ID))
+                   /COUNT(DISTINCT t.NCT_ID),1)                                 AS PCT
       FROM CT.V_LANDSCAPE t
       LEFT JOIN CT_LAKE.TRIAL_PUBLICATIONS p ON p.NCT_ID = t.NCT_ID
       WHERE t.STATUS_GROUP = 'Completed' AND t.PHASE_IS_STATED
