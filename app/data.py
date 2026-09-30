@@ -71,7 +71,12 @@ def fix_vm_clock():
     return True, "clock resynced — %d s from this host" % skew
 
 
-@st.cache_data(ttl=TTL, show_spinner=False)
+# Health is the one thing that must NOT use TTL=None. It is cheap, and it is the
+# only value here that can change without the data changing -- a restart, an SLC
+# install or a firewall rule flipping. Cached forever, a thirty-second outage
+# stays on the screen until someone restarts the app, which is exactly what
+# happened at 17:40 on 2026-09-30.
+@st.cache_data(ttl=20, show_spinner=False)
 def health():
     """What is up -- and when something is down, WHY.
 
@@ -121,6 +126,10 @@ def health():
         out["cause"] = (f"the Exasol VM's clock is {mins} behind this host, so every S3 request "
                         "fails signature validation (403). The containers are fine.")
         out["fix"] = fix or "resync the VM clock with hwclock -s"
+    elif "currently in progress" in out["err"] or "Please wait" in out["err"]:
+        out["cause"] = ("the database is restarting \u2014 a start, or an SLC install, is "
+                        "in progress. Nothing is broken; the launcher serialises these.")
+        out["fix"] = "wait for it to finish, then reload"
     elif "LAKEHOUSE_VERSION" in out["err"] or "not found" in out["err"]:
         out["cause"] = "the lakehouse engine is not installed in Exasol"
         out["fix"] = "./lake/install_engine.sh"
