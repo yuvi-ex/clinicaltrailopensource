@@ -1,6 +1,6 @@
 # CLINICAL TRIAL INTELLIGENCE ON EXASOL — WHAT WE BUILT
 
-**Demo 1 · Pharma** for Open Source India 2026.
+A worked example of hybrid retrieval and lakehouse federation on a single Exasol node.
 Every number in this document was queried from the running system, not quoted from
 a design note. Where a figure is an estimate or a lower bound, it says so.
 
@@ -207,7 +207,6 @@ statement across two storage tiers. **This is the only route that reads the lake
 | **Streamlit page** | the booth screen — 7 tabs, plus a Walkthrough mode of 6 full-screen steps | `./app/run.sh` → `:8503` |
 | **CLI steps** | the build, narrated — each step prints the SQL before running it | `./01_snapshot.sh` … `./07_lake.sh` |
 | **Preflight** | 15 checks, GO / NO-GO | `./00_preflight.sh` |
-| **Probe UI** | the original analyst tool, stdlib only | `python3 bin/ui.py` → `:8899` |
 
 **Streamlit tabs:** 1 the problem · 2 the solution · 3 the value · 4 architecture ·
 5 the demo with evidence · 6 the agent · 7 what this will not claim.

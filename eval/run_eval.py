@@ -84,7 +84,7 @@ def main():
         "caveat": ("All gold sets are snapshot-sql: derived by predicate from the "
                    "loaded data, so they are reproducible but they are NOT an "
                    "independent ground truth. Review-derived questions are still "
-                   "outstanding -- see eval/REVIEW_QUESTIONS.md."),
+                   "outstanding: they require reading published landscape reviews."),
     }
     for cat in {q["category"] for q in qs}:
         sub = [r for r in ok if r["category"] == cat]

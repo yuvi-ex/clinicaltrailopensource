@@ -116,6 +116,33 @@ Everything reaches the database through the Exasol CLI: `exasol connect` for SQL
 directory the VM shares with the host. There is no separate load tool and no SSH
 to the node.
 
+## The sample data
+
+Both datasets ship **in this repo**, so a clone has everything it needs and no
+step depends on network access or an API key.
+
+| File | Contents | Size |
+|---|---|---|
+| `data/trials_snapshot.json.gz` | **12,404** interventional trials from ClinicalTrials.gov, started 2015 or later | 15 MB |
+| `data/pubmed_snapshot.json.gz` | **3,796** PubMed publications, linked to **2,644** of those trials | 2.7 MB |
+
+Each snapshot carries its own provenance — when it was fetched, the exact query
+filter and the field list — inside a `_meta` block, so what you load is
+reproducible and auditable:
+
+```
+AREA[StudyType]INTERVENTIONAL AND AREA[StartDate]RANGE[2015-01-01,MAX]
+```
+
+Publications are joined to trials by the NCT number the paper itself cites as a
+DataBank accession. A paper that never cites its trial is invisible to that join,
+which is why publication linkage is reported as a **lower bound** and never as
+proof that a trial went unpublished.
+
+`01_snapshot.sh` and `ingest/fetch_pubmed.py` refetch these from the public APIs
+if you want fresher data. You do not need to run them — `02_load_exasol.sh`
+reads the committed snapshots directly.
+
 ## The one design idea
 
 Exasol has no vector type and no vector index. So vectors are stored **long and
@@ -204,8 +231,8 @@ looking in the wrong half.
 ## Honesty
 
 - All eval gold sets are `snapshot-sql`: reproducible predicates over the loaded
-  data, **not** an independent ground truth. Review-derived questions are
-  outstanding and tracked in `eval/REVIEW_QUESTIONS.md`.
+  data, **not** an independent ground truth. Questions derived from published
+  landscape reviews would be a stronger test and are not included.
 - The vector side is TF-IDF + 96-dim SVD, not a transformer. It explains only
   18% of variance and its similarities are compressed into a narrow band near
   1.0, so *relative* order carries the signal and absolute scores mean little.
@@ -235,16 +262,6 @@ presenting to a room.
 Two of the pages end by admitting a limit, which is deliberate: the stopword
 proof is computed by `CT.QUERY_TERMS` on the spot, and the antonymy blind spot
 reports its *current* rank rather than a remembered one.
-
-# Local probe UI
-
-```
-python3 bin/ui.py     # http://127.0.0.1:8899/
-```
-
-Stdlib only. Runs every question BOTH ways -- text alone and with the structured
-section filter -- side by side, and highlights in red any top-ranked row that came
-from the wrong criteria section. Preset buttons load the two known failures.
 
 ## Licence
 

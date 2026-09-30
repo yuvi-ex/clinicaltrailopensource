@@ -434,6 +434,7 @@ div[data-testid="stHorizontalBlock"] button[data-testid="stBaseButton-primary"] 
 .lede2 {{ font-size:1.02rem; line-height:1.68; color:var(--muted); max-width:78ch;
   margin-bottom:1.1rem; }}
 .lede2 em {{ color:var(--ink); font-style:italic; }}
+.lede2:empty {{ display:none; }}
 .duo {{ display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; margin:.2rem 0 1rem; }}
 .dcard {{ border-radius:20px; border:1px solid var(--line); border-left:6px solid var(--teal);
   box-shadow:var(--shadow); padding:1.15rem 1.35rem; }}

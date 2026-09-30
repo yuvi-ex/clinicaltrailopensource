@@ -6,7 +6,7 @@
     "  snapshot-sql : derived from the loaded data by the SQL in this file.",
     "  review       : taken from a published landscape review's trial table.",
     "NOTE: every question below is snapshot-sql. Review-derived questions require",
-    "reading the reviews and are tracked in eval/REVIEW_QUESTIONS.md -- they are",
+    "reading published landscape reviews, which is reading work -- they are",
     "NOT yet present, and the harness reports that gap rather than hiding it."
   ],
   "questions": [

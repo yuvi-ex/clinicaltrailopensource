@@ -50,7 +50,7 @@ class Box:
         for ln in self.lines:
             mono = ln.startswith("`")
             out.append(f'<text x="{self.x+16}" y="{ty}" font-family="{MONO if mono else SANS}" '
-                       f'font-size="{11 if mono else 12}" fill="{MUTED}">{ln.strip("`")}</text>')
+                       f'font-size="{11 if mono else 12}" fill="{MUTED}">{ln.replace("`", "")}</text>')
             ty += 16
         if self.note:
             out.append(f'<text x="{self.x+16}" y="{self.y+self.h-11}" font-family="{SANS}" '
@@ -168,64 +168,54 @@ G2 = (C2X + C2W + C3X) / 2          # 795, likewise
 def diagram(t, lake, cost):
     tr, cr, vr = f'{t["trials"]:,}', f'{t["criteria"]:,}', f'{t["vector_rows"]:,}'
     pp, lk = f'{lake["papers"]:,}', f'{lake["links"]:,}'
-    p = ['<svg viewBox="0 0 1240 1210" width="100%" role="img" '
-         'aria-label="Architecture. Top half, build time: three chains that run once before the demo - the registry becomes tables, the free text becomes vectors, and the literature is written to object storage. Bottom half, query time: three routes into one engine - an agent writing its own SQL over MCP, the app\u2019s fixed retrieval statement, and a counting question that joins the lakehouse." '
+    p = ['<svg viewBox="0 0 1240 930" width="100%" role="img" '
+         'aria-label="Architecture. Top half, build time: three chains that run once before the demo - the registry becomes tables, the free text becomes vectors, and the literature is written to object storage. Bottom half, query time: three routes into one engine - an agent writing its own SQL over MCP, the app’s fixed retrieval statement, and a counting question that joins the lakehouse." '
          'xmlns="http://www.w3.org/2000/svg">',
          f'<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" '
          f'markerHeight="6.5" orient="auto-start-reverse">'
          f'<path d="M0,0 L10,5 L0,10 z" fill="{WIRE}"/></marker></defs>']
 
     # ============================================================ BUILD TIME
-    p.append(_band(16, 16, 1208, 500, "BUILD TIME",
-                   "Runs once, offline, before the booth opens. None of this happens during a demo.",
+    p.append(_band(16, 16, 1208, 400, "BUILD TIME",
+                   "Runs once, offline. None of it happens during a demo.",
                    "rgba(15,118,110,0.04)"))
 
     # Three INDEPENDENT chains. They are lettered, not numbered 1..8, because a
     # single run of numbers invites the reader to look for a step between the
     # lanes -- and there isn't one.
     p.append(_lane(C1X, 82, "LANE A", "the registry becomes tables"))
-    src = Box(C1X, 94, C1W, 106, "A1 · ClinicalTrials.gov", [
+    src = Box(C1X, 94, C1W, 76, "A1 · ClinicalTrials.gov", [
         "API v2, oncology, 2015+",
         f"{tr} trials",
-        "`snapshot committed to git`",
-    ], TEAL, note="no venue network at demo time")
-    shred = Box(C2X, 94, C2W, 106, "A2 · Shred &amp; derive", [
-        f"`ingest/shred.py` → {cr} criteria",
-        "INCLUSION / EXCLUSION recovered",
-        "endpoint → 18 categories",
-        "country → 7 regions",
     ], TEAL)
-    exa = Box(C3X, 94, C3W, 106, "A3 · Exasol, native tables", [
-        "`IMPORT FROM LOCAL CSV FILE`",
+    shred = Box(C2X, 94, C2W, 76, "A2 · Shred &amp; derive", [
+        f"`ingest/shred.py` → {cr} criteria",
+        "sections + endpoints derived",
+    ], TEAL)
+    exa = Box(C3X, 94, C3W, 76, "A3 · Exasol, native tables", [
         f"TRIALS {tr} · ELIG_CHUNKS {cr}",
         "+ semantic layer views",
     ], TEAL)
 
-    p.append(_lane(C1X, 240, "LANE B", "the text becomes arithmetic"))
-    embed = Box(C2X, 252, C2W, 122, "B1 · Embed, offline", [
-        "`ml/build_vectors.py` in Docker",
-        "sklearn pinned to the SLC's version",
+    p.append(_lane(C1X, 196, "LANE B", "the text becomes arithmetic"))
+    embed = Box(C2X, 208, C2W, 76, "B1 · Embed, offline", [
         "TF-IDF → SVD 96 dims → L2 normalise",
-        "→ vectors, BM25 tokens, model.pkl",
+        "`ml/build_vectors.py`, sklearn pinned",
     ], AMBER)
-    store2 = Box(C3X, 252, C3W, 122, "B2 · Vectors + model file", [
+    store2 = Box(C3X, 208, C3W, 76, "B2 · Vectors + model file", [
         f"`CT.ELIG_VECTORS` {vr} rows",
-        "96 rows per criterion, long and narrow",
-        "the model file, uploaded into storage",
-        "`curl -X PUT .../udf/model.pkl`",
+        "96 rows per criterion",
     ], AMBER)
 
-    p.append(_lane(C1X, 414, "LANE C", "the literature stays where it is"))
-    pub = Box(C1X, 426, C1W, 76, "C1 · PubMed", [
+    p.append(_lane(C1X, 310, "LANE C", "the literature stays where it is"))
+    pub = Box(C1X, 322, C1W, 76, "C1 · PubMed", [
         f"E-utilities, {pp} papers",
-        "`snapshot committed to git`",
     ], AMBER)
-    ice = Box(C2X, 426, C2W, 76, "C2 · Write Iceberg", [
-        "`lake/load_iceberg.py` (pyiceberg)",
+    ice = Box(C2X, 322, C2W, 76, "C2 · Write Iceberg", [
         f"{lk} trial–paper links",
     ], AMBER)
-    lakeb = Box(C3X, 426, C3W, 76, "C3 · The lake", [
-        "Iceberg on MinIO (S3) + REST catalog",
+    lakeb = Box(C3X, 322, C3W, 76, "C3 · The lake", [
+        "Iceberg on MinIO + REST catalog",
         "`never loaded into Exasol`",
     ], AMBER)
 
@@ -244,8 +234,8 @@ def diagram(t, lake, cost):
     # retrieval chain, but sql/05_hybrid_search.sql.tmpl contains no reference to
     # CT_LAKE at all -- the lake is read by the agent, and by a SEPARATE
     # analytical statement. Drawing it inside the retrieval path was a lie.
-    p.append(_band(16, 540, 1208, 640, "QUERY TIME",
-                   "Three kinds of question, one engine \u2014 and only this band runs during a demo.",
+    p.append(_band(16, 440, 1208, 468, "QUERY TIME",
+                   "Three kinds of question, one engine.",
                    "rgba(197,125,31,0.055)"))
 
     Q1X, Q1W = 44, 256
@@ -254,76 +244,62 @@ def diagram(t, lake, cost):
     Q4X, Q4W = 1020, 188
 
     # -- route 1: the agent writes its own SQL
-    p.append(_lane(Q1X, 604, "ROUTE 1", "an agent asks \u2014 it writes the SQL itself  (tab 6)"))
-    aask = Box(Q1X, 616, Q1W, 100, "A question, in English", [
-        "typed into any MCP client",
-        "\u201cwhich trials exclude prior",
-        "anti-PD-1?\u201d",
+    p.append(_lane(Q1X, 504, "ROUTE 1", "an agent asks — it writes the SQL itself"))
+    aask = Box(Q1X, 516, Q1W, 76, "A question, in English", [
+        "“which trials exclude",
+        "prior anti-PD-1?”",
     ], AMBER)
-    mcp = Box(Q2X, 616, Q2W, 100, "Claude, over MCP", [
+    mcp = Box(Q2X, 516, Q2W, 76, "Claude, over MCP", [
         "`exasol-mcp-server`, read-only",
-        "lists and describes the schema,",
-        "then runs its own query",
+        "describes schema, then queries",
     ], AMBER)
-    agsql = Box(Q3X, 616, Q3W, 100, "SQL the agent wrote", [
-        "no statement written for it",
-        "any schema, incl. `CT_LAKE`",
-        "different every time",
-    ], AMBER, note="nobody wrote this")
+    agsql = Box(Q3X, 516, Q3W, 76, "SQL the agent wrote", [
+        "nobody wrote this statement",
+        "any schema, incl. CT_LAKE",
+    ], AMBER)
 
     # -- route 2: the app's fixed retrieval statement
-    p.append(_lane(Q1X, 752, "ROUTE 2", "the app asks \u2014 one fixed statement, filled in  (tab 5)"))
-    ask = Box(Q1X, 800, Q1W, 112, "The same question", [
-        "split word by word against",
-        "the layer's own vocabulary",
-        "",
+    p.append(_lane(Q1X, 616, "ROUTE 2", "the app asks — one fixed statement, filled in"))
+    ask = Box(Q1X, 657, Q1W, 92, "The same question", [
+        "split against the layer's",
+        "own vocabulary",
         "no language model here",
     ], TEAL)
-    splitb = Box(Q2X, 776, Q2W, 152, "Semantic layer splits it", [
-        "`AND t.PHASE='PHASE3'`",
-        "`AND t.INDICATION='NSCLC'`",
-        "`AND c.CRITERION_SECTION='EXCLUSION'`",
-        "the rest becomes the query text",
-        "same question \u2192 same SQL, always",
+    splitb = Box(Q2X, 657, Q2W, 92, "Semantic layer splits it", [
+        "`t.PHASE='PHASE3'`",
+        "`c.CRITERION_SECTION='EXCLUSION'`",
+        "same question → same SQL",
     ], TEAL)
-    vec = Box(Q3X, 756, Q3W, 92, "Vector side", [
-        "`CT.EMBED_QUERY()` Python UDF",
+    vec = Box(Q3X, 628, Q3W, 76, "Vector side", [
         f"GROUP BY {vr} rows",
-        "`SUM(v.VAL * q.VAL)` is cosine",
-    ], TEAL, note="model loaded from storage")
-    lex = Box(Q3X, 862, Q3W, 78, "Lexical side", [
-        "`CT.QUERY_TERMS()` Python UDF",
+        "SUM(v.VAL * q.VAL) is cosine",
+    ], TEAL)
+    lex = Box(Q3X, 716, Q3W, 62, "Lexical side", [
         "BM25 over CHUNK_TOKENS",
     ], TEAL)
-    fuse = Box(Q4X, 780, Q4W, 100, "Fused &amp; filtered", [
+    fuse = Box(Q4X, 657, Q4W, 92, "Fused &amp; filtered", [
         "RRF over both",
-        "rankings; structured",
-        "filter runs BEFORE",
-        "any scoring",
+        "rankings; the filter",
+        "runs before scoring",
     ], TEAL)
 
     # -- route 3: the analytical statement that actually reaches the lake
-    p.append(_lane(Q1X, 964, "ROUTE 3", "an analytical question \u2014 the only one that reads the lake  (tab 3)"))
-    anq = Box(Q1X, 976, Q1W, 92, "A counting question", [
-        "\u201cwhich completed trials",
-        "ever published?\u201d",
-        "no retrieval involved",
+    p.append(_lane(Q1X, 802, "ROUTE 3", "an analytical question — the only one that reads the lake"))
+    anq = Box(Q1X, 814, Q1W, 76, "A counting question", [
+        "“which completed trials",
+        "ever published?”",
     ], AMBER)
-    lak = Box(Q2X, 976, Q2W, 92, "Native \u22c8 lakehouse", [
+    lak = Box(Q2X, 814, Q2W, 76, "Native ⋈ lakehouse", [
         "`CT.V_LANDSCAPE` (native)",
         "`LEFT JOIN CT_LAKE.TRIAL_PUBLICATIONS`",
-        "one statement, two storage tiers",
     ], AMBER)
-    lakeng = Box(Q3X, 976, Q3W, 92, "Read in place", [
+    lakeng = Box(Q3X, 814, Q3W, 76, "Read in place", [
         "Rust UDF running DataFusion",
-        "Iceberg on object storage",
         f"+{cost['delta_ms']} ms over native",
-    ], AMBER, note="nothing imported")
-
-    ans = Box(Q4X, 976, Q4W, 92, "One answer", [
+    ], AMBER)
+    ans = Box(Q4X, 814, Q4W, 76, "One answer", [
         "cites its NCT ID",
-        "whichever route",
-        "asked the question",
+        "from any route",
     ], INK)
 
     for b in (aask, mcp, agsql, ask, splitb, vec, lex, fuse, anq, lak, lakeng, ans):
@@ -340,8 +316,7 @@ def diagram(t, lake, cost):
     p.append(_hop(ask.right(), splitb.left(), gq1))
     p.append(_bus(splitb.right(), [vec.left(), lex.left()], gq2))
     p.append(_merge([vec.right(), lex.right()], fuse.left(), gq3))
-    p.append(_hop(fuse.right(0.5), ans.left(0.5), gq3 + 40) if False else
-             _wire([fuse.bottom(), (fuse.x + fuse.w / 2, ans.y)], "ranked",
+    p.append(_wire([fuse.bottom(), (fuse.x + fuse.w / 2, ans.y)], "ranked",
                    (fuse.x + fuse.w / 2, (fuse.y + fuse.h + ans.y) / 2)))
 
     p.append(_hop(anq.right(), lak.left(), gq1))
@@ -405,7 +380,7 @@ def four_shapes(na_pct, other_pct):
         ("“Did any of them publish?”", "not in the warehouse at all",
          "another system", "#FCEBEC", "#C4121F"),
     ]
-    p = ['<svg viewBox="0 0 1240 330" width="100%" role="img" '
+    p = ['<svg viewBox="0 0 1240 274" width="100%" role="img" '
          'aria-label="One clinical trial question splits into four kinds of data. One is coded '
          'and answerable with a WHERE clause; the other three are free text, misleadingly coded, '
          'or held in another system entirely." xmlns="http://www.w3.org/2000/svg">',
@@ -413,15 +388,15 @@ def four_shapes(na_pct, other_pct):
          f'markerHeight="6" orient="auto-start-reverse">'
          f'<path d="M0,0 L10,5 L0,10 z" fill="{WIRE}"/></marker></defs>']
     # the question
-    p.append(f'<rect x="40" y="96" width="290" height="138" rx="14" fill="#081226"/>')
-    p.append(f'<text x="64" y="132" font-family="{MONO}" font-size="10.5" font-weight="700" '
+    p.append(f'<rect x="40" y="42" width="290" height="138" rx="14" fill="#081226"/>')
+    p.append(f'<text x="64" y="78" font-family="{MONO}" font-size="10.5" font-weight="700" '
              f'letter-spacing="2" fill="rgba(255,255,255,.55)">ONE QUESTION</text>')
     for i, ln in enumerate(["Who else is competing", "for my Phase 3", "lung-cancer patients?"]):
-        p.append(f'<text x="64" y="{166 + i*24}" font-family="{HEAD}" font-size="17" '
+        p.append(f'<text x="64" y="{112 + i*24}" font-family="{HEAD}" font-size="17" '
                  f'font-weight="700" fill="#ffffff">{ln}</text>')
     bus = 382
-    ys = [70, 132, 194, 256]
-    p.append(f'<path d="M330,165 L{bus},165" stroke="{WIRE}" stroke-width="1.8" fill="none"/>')
+    ys = [16, 78, 140, 202]
+    p.append(f'<path d="M330,111 L{bus},111" stroke="{WIRE}" stroke-width="1.8" fill="none"/>')
     p.append(f'<path d="M{bus},{ys[0]+29} L{bus},{ys[-1]+29}" stroke="{WIRE}" stroke-width="1.8"/>')
     for (title, sub, verdict, fill, ink), y in zip(LANES, ys):
         p.append(f'<path d="M{bus},{y+29} L434,{y+29}" stroke="{WIRE}" stroke-width="1.8" '
@@ -441,47 +416,47 @@ def four_shapes(na_pct, other_pct):
 
 def before_after():
     """Four systems and three copies, against one engine."""
-    p = ['<svg viewBox="0 0 1240 300" width="100%" role="img" '
+    p = ['<svg viewBox="0 0 1240 278" width="100%" role="img" '
          'aria-label="The usual architecture uses four systems and three copies of the corpus, '
          'joined in application code. This demo uses one engine holding all of it, with an agent '
          'reading the same schema." xmlns="http://www.w3.org/2000/svg">']
     # --- the usual way
-    p.append(f'<text x="40" y="30" font-family="{MONO}" font-size="11" font-weight="700" '
+    p.append(f'<text x="40" y="20" font-family="{MONO}" font-size="11" font-weight="700" '
              f'letter-spacing="2" fill="{MUTED}">THE USUAL ANSWER</text>')
-    p.append(f'<rect x="40" y="46" width="530" height="228" rx="18" fill="rgba(196,18,31,.04)" '
+    p.append(f'<rect x="40" y="36" width="530" height="228" rx="18" fill="rgba(196,18,31,.04)" '
              f'stroke="{LINE}" stroke-dasharray="4 5"/>')
     boxes = [("Warehouse", "the coded columns"), ("Vector database", "the free text"),
              ("Lake query engine", "the publications"), ("An application", "joins the three")]
     for i, (t, sub) in enumerate(boxes):
-        x, y = 62 + (i % 2) * 254, 70 + (i // 2) * 92
+        x, y = 62 + (i % 2) * 254, 60 + (i // 2) * 92
         p.append(f'<rect x="{x}" y="{y}" width="234" height="70" rx="12" fill="#ffffff" '
                  f'stroke="{LINE}"/>')
         p.append(f'<text x="{x+16}" y="{y+27}" font-family="{HEAD}" font-size="14" '
                  f'font-weight="700" fill="{INK}">{t}</text>')
         p.append(f'<text x="{x+16}" y="{y+48}" font-family="{SANS}" font-size="12" '
                  f'fill="{MUTED}">{sub}</text>')
-    p.append(_pill(62, 246, 232, "3 copies of the corpus", "#FCEBEC", "#C4121F"))
-    p.append(_pill(316, 246, 232, "the join is unauditable", "#FCEBEC", "#C4121F"))
+    p.append(_pill(62, 236, 232, "3 copies of the corpus", "#FCEBEC", "#C4121F"))
+    p.append(_pill(316, 236, 232, "the join is unauditable", "#FCEBEC", "#C4121F"))
     # --- here
-    p.append(f'<text x="670" y="30" font-family="{MONO}" font-size="11" font-weight="700" '
+    p.append(f'<text x="670" y="20" font-family="{MONO}" font-size="11" font-weight="700" '
              f'letter-spacing="2" fill="{TEAL}">HERE</text>')
-    p.append(f'<rect x="670" y="46" width="530" height="228" rx="18" fill="rgba(31,160,139,.05)" '
+    p.append(f'<rect x="670" y="36" width="530" height="228" rx="18" fill="rgba(31,160,139,.05)" '
              f'stroke="{LINE}" stroke-dasharray="4 5"/>')
-    p.append(f'<rect x="692" y="70" width="486" height="118" rx="14" fill="#ffffff" '
+    p.append(f'<rect x="692" y="60" width="486" height="118" rx="14" fill="#ffffff" '
              f'stroke="{LINE}"/>')
-    p.append(f'<rect x="692" y="70" width="5" height="118" rx="2.5" fill="{TEAL_FILL}"/>')
-    p.append(f'<text x="714" y="98" font-family="{HEAD}" font-size="15" font-weight="700" '
+    p.append(f'<rect x="692" y="60" width="5" height="118" rx="2.5" fill="{TEAL_FILL}"/>')
+    p.append(f'<text x="714" y="88" font-family="{HEAD}" font-size="15" font-weight="700" '
              f'fill="{INK}">One engine</text>')
     for i, ln in enumerate(["columns, free text and vectors, together",
                             "publications read in place from object storage",
                             "one statement, one audit trail"]):
-        p.append(f'<text x="714" y="{122 + i*21}" font-family="{SANS}" font-size="12" '
+        p.append(f'<text x="714" y="{112 + i*21}" font-family="{SANS}" font-size="12" '
                  f'fill="{MUTED}">{ln}</text>')
-    p.append(f'<rect x="692" y="200" width="486" height="54" rx="12" fill="#081226"/>')
-    p.append(f'<text x="714" y="223" font-family="{HEAD}" font-size="14" font-weight="700" '
+    p.append(f'<rect x="692" y="190" width="486" height="54" rx="12" fill="#081226"/>')
+    p.append(f'<text x="714" y="213" font-family="{HEAD}" font-size="14" font-weight="700" '
              f'fill="#ffffff">An agent, over MCP</text>')
-    p.append(f'<text x="714" y="242" font-family="{SANS}" font-size="12" '
+    p.append(f'<text x="714" y="232" font-family="{SANS}" font-size="12" '
              f'fill="rgba(255,255,255,.72)">reads the same schema, writes its own SQL</text>')
-    p.append(f'<path d="M934,200 L934,190" stroke="{WIRE}" stroke-width="1.8"/>')
+    p.append(f'<path d="M934,190 L934,180" stroke="{WIRE}" stroke-width="1.8"/>')
     p.append('</svg>')
     return "".join(p)

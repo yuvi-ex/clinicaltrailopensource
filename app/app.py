@@ -209,12 +209,10 @@ html(f"""
   <div class="hero-eyebrow">Clinical Trial Intelligence &middot; Live Demo</div>
   <div class="hero-title">&ldquo;Pembrolizumab in the US&rdquo; is 538 trials. Or 304. Or 50.</div>
   <div class="hero-copy">
-    The difference is three judgements: which brand names count as the same drug, whether
-    &ldquo;in the US&rdquo; means <em>a</em> US site or <em>only</em> US sites, and whether a
-    combination trial counts. None of them is obvious, and most systems bury all three in a
-    WHERE clause nobody reads. This one writes them down, applies one by default, and prints
-    what the alternatives would have given &mdash; next to the statement that produced every
-    number. Ask it a question, or ask it for the whole landscape.
+    Three judgements decide which number you get: which brand names are the same drug,
+    whether &ldquo;in the US&rdquo; means <em>a</em> US site or <em>only</em> US sites, and
+    whether combination trials count. Most systems bury them in a WHERE clause nobody reads.
+    This one writes them down, and shows what the alternatives would have given.
   </div>
   <div class="signal-grid">
     <div class="signal-card"><div class="signal-label">Exasol</div>
@@ -267,28 +265,20 @@ with tabs[0]:
     bighead("The challenge",
             "Every clinical trial is public. The question a study team actually asks "
             "has no column to answer it.",
-            "Phase, sponsor, status and geography are coded, and any warehouse can filter them. "
-            "The rest of the question is not.")
+            "")
 
     kicker("One question", "Four kinds of data, three of them blocked")
     html(f'<div class="archbox">{ARCH.four_shapes(na["pct"], other["pct"])}</div>')
 
-    kicker("What it takes to answer it", "Four systems, or one")
+    kicker("To answer it", "Four systems, or one")
     html(f'<div class="archbox">{ARCH.before_after()}</div>')
 
-    triplet([
-        ("One copy of the data", "Nothing exported to a vector store, nothing imported from the lake."),
-        ("One statement", "The structured half and the free-text half resolve together, auditably."),
-        ("One answer you can defend", "Every claim carries the NCT id it came from."),
-    ])
-
-    kicker("What the layer admits about itself",
-           "A dashboard that hides its own coverage is worse than none")
+    kicker("Coverage", "Stated, not hidden")
     kpis([
-        {"k": "Trials loaded", "v": n(t["trials"]), "x": "NSCLC and breast, interventional, 2015+"},
-        {"k": "Eligibility criteria", "v": n(t["criteria"]), "x": "one row per sentence, section recovered"},
-        {"k": "No usable phase", "v": f"{na['pct']}%", "x": "NOT_APPLICABLE \u2014 stated, never hidden", "tone": "hot"},
-        {"k": "Endpoints unclassifiable", "v": f"{other['pct']}%", "x": "free text, no controlled vocabulary", "tone": "hot"},
+        {"k": "Trials", "v": n(t["trials"]), "x": "NSCLC and breast, 2015+"},
+        {"k": "Eligibility criteria", "v": n(t["criteria"]), "x": "one row per sentence"},
+        {"k": "No usable phase", "v": f"{na['pct']}%", "x": "NOT_APPLICABLE", "tone": "hot"},
+        {"k": "Endpoints unclassifiable", "v": f"{other['pct']}%", "x": "no controlled vocabulary", "tone": "hot"},
     ])
 
 # ============================================================ 2. THE DEMO
@@ -392,8 +382,7 @@ with tabs[1]:
 with tabs[2]:
     bighead("How Exasol does it",
             "One engine holds the columns, the free text and the lakehouse.",
-            "Everything expensive runs once, before the demo. A question only ever touches the "
-            "bottom half of this picture.")
+            "Everything expensive runs once. A question touches only the bottom half.")
 
     cost = D.tier_cost() if h["lake"] else {"native_ms": 0, "lake_ms": 0, "delta_ms": 0}
     html(f'<div class="archbox">{ARCH.diagram(t, lake, cost)}</div>')
@@ -402,10 +391,9 @@ with tabs[2]:
     with c1:
         solution("The idea that makes it possible",
                  "A vector is rows. Cosine is a <em>GROUP BY</em>.",
-                 f"Exasol has no vector type and no vector index, so each 96-dimension vector is "
-                 f"stored as 96 rows, normalised at build time. A dot product then <em>is</em> cosine, "
-                 f"and similarity over {n(t['vector_rows'])} rows is an ordinary join and aggregate — "
-                 "the one thing this engine was built for. No index to tune, no recall cliff.")
+                 f"No vector type, no index: each 96-dimension vector is 96 rows, normalised at "
+                 f"build time. Similarity over {n(t['vector_rows'])} rows is then an ordinary join "
+                 "and aggregate — nothing to tune, no recall cliff.")
         st.code("""SELECT v.NCT_ID, v.CHUNK_ID, SUM(v.VAL * q.VAL) AS SIM
 FROM   CT.ELIG_VECTORS v
 JOIN   QV q ON q.DIM = v.DIM
@@ -413,16 +401,14 @@ GROUP  BY v.NCT_ID, v.CHUNK_ID""", language="sql")
     with c2:
         solution("And the data that should not move",
                  "A virtual schema, not a pipeline",
-                 f"{n(lake['papers'])} PubMed records stay as Iceberg tables on object storage and "
-                 "are never loaded. A Rust UDF running DataFusion reads them at query time and the "
-                 f"planner joins them to native tables — about <b>+{cost['delta_ms']} ms</b> over a "
-                 "native query. To the agent it is simply another schema."
+                 f"{n(lake['papers'])} PubMed records stay as Iceberg tables on object storage, "
+                 "never loaded. A Rust UDF reads them at query time and the planner joins them to "
+                 f"native tables — about <b>+{cost['delta_ms']} ms</b>."
                  if h["lake"] else "Start the lake with lake/up.sh to show this live.")
         solution("Why an agent can use any of it",
                  "Because it is all just SQL",
-                 "The agent gets no special path and no special access — the same views, the same "
-                 "grants, through the Exasol MCP server. That is what makes a lakehouse usable by "
-                 "an agent at all.")
+                 "No special path, no special access — the same views and grants, through the "
+                 "Exasol MCP server.")
 
     kicker("Component by component", "Sourced, ingested, stored, served")
     rows = "".join(f'<tr><td class="l">{a}</td><td class="m">{b}</td><td>{c}</td></tr>'
@@ -430,25 +416,24 @@ GROUP  BY v.NCT_ID, v.CHUNK_ID""", language="sql")
     html(f'<table class="cmp"><tr><th>Layer</th><th>What it is</th><th>Why it is there</th></tr>'
          f'{rows}</table>')
 
-    kicker("What this will not claim", "Measured on the loaded corpus, not quoted from a datasheet")
+    kicker("What this will not claim", "Measured here, not quoted from a datasheet")
     c1, c2 = st.columns(2)
     with c1:
         challenge("Not a transformer",
                   "TF-IDF with a 96-dimension SVD",
-                  "A transformer would retrieve better — and would be just as blind to the word "
-                  "&ldquo;no&rdquo;, because that failure is tokenisation, not model capacity.")
+                  "A transformer would retrieve better — and be just as blind to the word "
+                  "&ldquo;no&rdquo;. That failure is tokenisation, not model capacity.")
         challenge("Not proof of non-publication",
                   "Publication linkage is a lower bound",
                   "A paper that never cites its NCT number is invisible to the join.")
     with c2:
         challenge("Not the whole registry",
                   "NSCLC and breast, interventional, 2015 onwards",
-                  "12,404 trials. Other indications, epidemiology, reimbursement and regulatory "
-                  "data are not in this corpus.")
+                  "12,404 trials. Other indications and regulatory data are not in this corpus.")
         challenge("Not billion-scale",
                   "25.8M vector rows on a single-node VM",
-                  "Cost is linear in rows × dimensions. At a hundred times this, you would "
-                  "partition or accept approximate search.")
+                  "Cost is linear in rows × dimensions. At a hundred times this you would "
+                  "partition, or accept approximate search.")
 
 st.markdown("<br/>", unsafe_allow_html=True)
 if st.button("Refresh all live numbers"):
