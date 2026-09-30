@@ -32,4 +32,13 @@ xsql -f "$KIT_ROOT/sql/06_cro_tables.sql" | tail -2
 xsql "SELECT 'CRO_GLOBAL' AS T, COUNT(*) AS N FROM CT_CRO.CRO_GLOBAL
       UNION ALL SELECT 'CRO_REGION', COUNT(*) FROM CT_CRO.CRO_REGION;"
 
+say "3d. The resolution layer — the judgements, written down"
+# Drug aliases, sponsor rollup and the three readings of "in the US". The app's
+# report path queries CT.V_TRIAL_RESOLVED, so skipping this leaves the demo
+# half-built -- it used to be documented in the README and run by nobody.
+xsql -f "$KIT_ROOT/sql/07_resolution.sql" | tail -2
+xsql "SELECT 'drug aliases' AS T, COUNT(*) AS N FROM CT.DRUG_ALIAS
+      UNION ALL SELECT 'geo definitions', COUNT(*) FROM CT.GEO_DEFINITION
+      UNION ALL SELECT 'resolved trials', COUNT(*) FROM CT.V_TRIAL_RESOLVED;"
+
 say "STEP 3 DONE — say the 'unclassified' number out loud before anyone asks"

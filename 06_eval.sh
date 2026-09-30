@@ -57,7 +57,7 @@ python3 "$KIT_ROOT/eval/run_eval.py" --k "${K:-20}"
 
 cat <<'NOTE'
 
-    Recall 0.675 -> 0.858, and every returned row from the intended half.
+    Recall 0.679 -> 0.858, and every returned row from the intended half.
 
     Three things to say before anyone asks:
 

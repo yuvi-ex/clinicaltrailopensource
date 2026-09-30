@@ -10,8 +10,16 @@ down — and that a semantic layer is where those judgements belong. A third rea
 *US-led*, is the sharper point: the registry records no sponsor country, so it
 cannot be derived at all, and the layer says so rather than guessing.
 
-**First:** you need **Exasol Personal running locally with the PYTHON3 SLC**, and
-Docker. A clone alone will not show the UI — see [What it needs](#what-it-needs).
+**First:** you need **Exasol Personal running locally** and Docker. A clone alone
+will not show the UI — see [What it needs](#what-it-needs).
+
+A fresh or rebuilt deployment ships with **no script language container**, and
+the UDFs will not run without one. Check with `exasol slc list`; if `python-3.12`
+says `no`, install it first — this restarts the database:
+
+```
+exasol slc install PYTHON3
+```
 
 ```
 ./lake/up.sh             # OPTIONAL: object storage + Iceberg catalog (2 containers)
@@ -206,13 +214,21 @@ Measured on the loaded snapshot (12,404 trials), not quoted from documentation:
 
 ## The failure, which is the point
 
-Ask for trials that *exclude* prior PD-1 exposure and the fourth hit is
-`NCT02595866`, whose criterion reads **"No prior treatment with anti-PD-1 or
-anti-PD-L1"** — in the INCLUSION section. The opposite of the question.
+Ask `bin/search.py "exclude prior anti-PD-1"` and the top five come back like
+this — four of them carrying the *same criterion text*, filed by different
+sponsors into opposite sections:
 
-Cosine cannot separate it: the wrong-section hit scores **0.9987** against
-**0.9990** for the lowest correctly-ranked row above it — a gap of 0.0003.
-BM25 scores it *higher* than two correct rows. The reason is one query away:
+| rank | section | cosine | BM25 | criterion |
+|---|---|---|---|---|
+| 2 | **INCLUSION** | 0.9842 | 24.00 | "Any toxicity that led to permanent discontinuation of prior anti-PD-1/PD-L1 immunotherapy" |
+| 3 | EXCLUSION | 0.9842 | 24.00 | the same sentence |
+| 4 | EXCLUSION | 0.9842 | 24.00 | the same sentence |
+| 5 | **INCLUSION** | 0.9842 | 24.00 | the same sentence |
+
+Neither ranker can separate them, and that is not a tuning problem: the cosine
+is **identical to four decimal places** and the BM25 score is identical too,
+because the text *is* identical. Nothing in the sentence says which half of the
+eligibility criteria it was filed under. Only `CRITERION_SECTION` does. The reason is one query away:
 
 ```sql
 SELECT TERM FROM (SELECT CT.QUERY_TERMS('No prior treatment with anti-PD-1') FROM DUAL);
@@ -228,15 +244,15 @@ column, applied before scoring:
 
 | | recall@20 | section purity |
 |---|---|---|
-| text alone | 0.675 | 0.763 |
+| text alone | 0.679 | 0.767 |
 | with the structured section filter | **0.858** | 1.000 |
-| — hybrid questions (8) | 0.713 → 0.925 | 0.769 → 1.000 |
+| — hybrid questions (8) | 0.719 → 0.925 | 0.775 → 1.000 |
 | — polarity questions (4) | 0.600 → **0.725** | 0.750 → 1.000 |
 
 **Read the recall column, not the purity column.** Purity of 1.000 is true by
 construction: once the query filters to one section, every hit comes from that
 section by definition. It is reported only to show the filter does what it says.
-The finding is recall — 0.675 → 0.858 across 12 questions, without retraining
+The finding is recall — 0.679 → 0.858 across 12 questions, without retraining
 anything.
 
 The worst single case is `pol-02`, *"no prior systemic chemotherapy for
@@ -249,7 +265,7 @@ Ask for `EGFR mutation positive`, filtered to INCLUSION, and at **rank 13**
 comes *"EGFR mutation or ALK mutation was **negative**"* — cosine 0.9455, in
 INCLUSION, the section that was asked for. A more clearly opposite example — *"EGFR mutation
 negative and ALK fusion negative"* in `NCT07633873`, where both terms are negated —
-sits further down at rank 52. These ranks
+sits further down at rank 57. These ranks
 are recomputed on every run rather than quoted, because a rank changes whenever
 the corpus does. Here `negative` is **not** a
 stopword — it survives tokenisation intact. The vector space simply does not encode that it inverts the

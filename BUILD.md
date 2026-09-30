@@ -12,7 +12,7 @@ a design note. Where a figure is an estimate or a lower bound, it says so.
 |---|---|
 | **The question it answers** | Who else is competing for my Phase 3 lung-cancer patients? |
 | **Why that is hard** | Half the question is a `WHERE` clause; the other half exists only as free text |
-| **The finding** | Recall 0.675 → 0.858 by adding **one column**. No model was retrained. |
+| **The finding** | Recall 0.679 → 0.858 by adding **one column**. No model was retrained. |
 | **Engine** | Exasol Personal, single node, on a laptop |
 | **Sources** | ClinicalTrials.gov (12,404 trials) · PubMed (3,796 papers) |
 | **Storage** | Native Exasol tables + Iceberg on object storage, joined in one statement |
@@ -219,9 +219,9 @@ statement across two storage tiers. **This is the only route that reads the lake
 
 | | Recall@20 | Section purity |
 |---|---|---|
-| Text alone | 0.675 | 0.763 |
+| Text alone | 0.679 | 0.767 |
 | **With the recovered column** | **0.858** | **1.000** |
-| — hybrid questions | 0.713 → 0.925 | 0.769 → 1.000 |
+| — hybrid questions | 0.719 → 0.925 | 0.775 → 1.000 |
 | — polarity questions | 0.600 → 0.725 | 0.750 → 1.000 |
 
 ## 7B. The two failures, both real and both left in
