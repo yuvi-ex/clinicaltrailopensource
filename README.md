@@ -84,19 +84,22 @@ GROUP BY t.PHASE;
 The join key is real: PubMed carries the registry number as a DataBank
 accession, so this is an equi-join on `NCT_ID`, not title matching.
 
-Say the caveat with whatever number this returns: a paper that never cites its
-NCT number is invisible to this join, so the result is a lower bound on
-reporting, not proof a trial went unpublished.
+**93 of 242 completed Phase 3 trials — 38.4% — have no linked publication.** Say
+the caveat with the number: a paper that never cites its NCT number is invisible
+to this join, so this is a lower bound on reporting, not proof a trial went
+unpublished.
 
-> **This figure is being recomputed.** An earlier version of this README quoted
-> 65.8%, produced by a query that used `COUNT(*)` after the `LEFT JOIN`. Because
-> a trial with three linked papers contributes three rows, that inflated both the
-> denominator and the unpublished count. The query above is corrected; the number
-> will be restored once it has been rerun against a freshly loaded database.
+> **An earlier version of this README said 65.8%, and that was wrong.** The query
+> used `COUNT(*)` after the `LEFT JOIN`. `TRIAL_PUBLICATIONS` holds one row per
+> trial–paper link, so a trial with three papers contributed three rows, and the
+> inflated count landed in both the numerator and the denominator. Counting
+> `DISTINCT t.NCT_ID` gives 242 trials where `COUNT(*)` gave 436 — so the real
+> figure is **38.4%, not 65.8%**. A fan-out bug in one `SELECT` moved the
+> headline number by 27 percentage points.
 
-Cost of the second tier, measured: a native count is ~330ms and a lake count
-~490ms, both including client connect time — so reaching the lake costs about
-**160ms**, not 490.
+Cost of the second tier, measured on the machine in Tested on: a native count is
+~58ms and the same count joined to the lake ~225ms, both including client connect
+time — so reaching the lake costs about **170ms**, not 225.
 
 ### How the lakehouse is installed here
 
@@ -163,7 +166,7 @@ step depends on network access or an API key.
 | File | Contents | Size |
 |---|---|---|
 | `data/trials_snapshot.json.gz` | **12,404** interventional trials from ClinicalTrials.gov, started 2015 or later | 15 MB |
-| `data/pubmed_snapshot.json.gz` | **3,796** PubMed publications, linked to **2,644** of those trials | 2.7 MB |
+| `data/pubmed_snapshot.json.gz` | **3,796** PubMed publications carrying **4,627** trial citations. Those name 3,233 distinct trials, **2,644** of which are in the snapshot above | 2.7 MB |
 
 Each snapshot carries its own provenance — when it was fetched, the exact query
 filter and the field list — inside a `_meta` block, so what you load is

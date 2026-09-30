@@ -20,6 +20,20 @@ CATALOG_URI = os.environ.get("LAKE_CATALOG", "http://127.0.0.1:18181")
 S3_ENDPOINT = os.environ.get("LAKE_S3", "http://127.0.0.1:19000")
 NAMESPACE = "ct"
 
+
+def _lake_env():
+    """MinIO credentials from the environment, else lake/.env (never hard-coded)."""
+    env = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env):
+        for line in open(env):
+            k, _, v = line.strip().partition("=")
+            if k and not k.startswith("#"):
+                os.environ.setdefault(k, v)
+    try:
+        return os.environ["MINIO_ROOT_USER"], os.environ["MINIO_ROOT_PASSWORD"]
+    except KeyError:
+        sys.exit("Set MINIO_ROOT_USER and MINIO_ROOT_PASSWORD in lake/.env")
+
 PUB_SCHEMA = pa.schema([
     ("pmid", pa.string()), ("doi", pa.string()), ("title", pa.string()),
     ("journal", pa.string()), ("pub_year", pa.int32()),
@@ -29,12 +43,13 @@ LINK_SCHEMA = pa.schema([("nct_id", pa.string()), ("pmid", pa.string())])
 
 
 def catalog():
+    user, password = _lake_env()
     return RestCatalog("ct", **{
         "uri": CATALOG_URI,
         "warehouse": "s3://warehouse/",
         "s3.endpoint": S3_ENDPOINT,
-        "s3.access-key-id": "minioadmin",
-        "s3.secret-access-key": "minioadmin",
+        "s3.access-key-id": user,
+        "s3.secret-access-key": password,
         "s3.path-style-access": "true",
         "s3.region": "us-east-1",
     })

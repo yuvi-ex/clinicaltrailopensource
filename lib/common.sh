@@ -91,6 +91,8 @@ LAKE_HOST="${LAKE_HOST:-192.168.64.1}"
 LAKE_S3_PORT="${LAKE_S3_PORT:-19000}"
 LAKE_CATALOG_PORT="${LAKE_CATALOG_PORT:-18181}"
 LAKE_NAMESPACE="${LAKE_NAMESPACE:-ct}"
+# MinIO credentials live in lake/.env (git-ignored), never in the scripts.
+if [ -f "$KIT_ROOT/lake/.env" ]; then set -a; . "$KIT_ROOT/lake/.env"; set +a; fi
 
 bfs_put() {
   local src="$1" dest="$2"

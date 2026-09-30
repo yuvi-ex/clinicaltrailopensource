@@ -240,7 +240,7 @@ not. **The section filter cannot help here.** Left unfixed and documented.
 
 | | |
 |---|---|
-| Completed Phase 3 trials with **no linked publication** | *being recomputed* — the earlier 65.8% (287 of 436) came from a query that counted joined rows, not trials |
+| Completed Phase 3 trials with **no linked publication** | **38.4%** (93 of 242) |
 | Cost of reaching the lake | **+159 ms** over a native query |
 
 ## 7D. The agent
@@ -265,7 +265,7 @@ When the lakehouse was unavailable it reported the infrastructure fault and
 |---|---|
 | **Not independent ground truth** | Eval gold sets are SQL predicates over the same corpus. Reproducible, not an outside judgement. |
 | **Not a transformer** | TF-IDF + 96-dim SVD, ~18% of variance. A transformer would retrieve better — and would be **just as blind to the word "no"**. |
-| **Not proof of non-publication** | Whatever the figure, it is a lower bound on **linkage**. A paper that never cites its NCT number is invisible to the join. |
+| **Not proof of non-publication** | 38.4% is a lower bound on **linkage**. A paper that never cites its NCT number is invisible to the join. |
 | **Not a CRO portfolio** | The registry has no CRO field; `leadSponsor` is the pharma company. |
 | **Not billion-scale** | 25.8M rows on a single-node VM. Linear in rows × dimensions. |
 

@@ -55,4 +55,4 @@ def run(ctx):
 /" >/dev/null
 xsql "SELECT 'object storage' AS TARGET, LAKEHOUSE.NET_PROBE('$LAKE_HOST',$LAKE_S3_PORT) AS R FROM DUAL
       UNION ALL SELECT 'iceberg catalog', LAKEHOUSE.NET_PROBE('$LAKE_HOST',$LAKE_CATALOG_PORT) FROM DUAL;"
-say "Lake ready — console http://127.0.0.1:19001 (minioadmin/minioadmin)"
+say "Lake ready — console http://127.0.0.1:19001 (credentials in lake/.env)"

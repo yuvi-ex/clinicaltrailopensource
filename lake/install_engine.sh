@@ -80,8 +80,8 @@ CREATE OR REPLACE CONNECTION LAKEHOUSE_CATALOG_CREDS
     "warehouse":  "s3://warehouse/",
     "region":     "us-east-1",
     "endpoint":   "http://$LAKE_HOST:$LAKE_S3_PORT",
-    "access_key": "minioadmin",
-    "secret_key": "minioadmin",
+    "access_key": "${MINIO_ROOT_USER:?set it in lake/.env}",
+    "secret_key": "${MINIO_ROOT_PASSWORD:?set it in lake/.env}",
     "path_style": true
   }';
 DROP VIRTUAL SCHEMA IF EXISTS CT_LAKE CASCADE;
