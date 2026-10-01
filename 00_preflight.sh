@@ -19,18 +19,11 @@ chk "model in BucketFS"               "test -s '$BFS_DIR/ct/elig_model.pkl'"
 chk "EMBED_QUERY returns 96 dims"     "exa_sql \"SELECT 1 FROM (SELECT CT.EMBED_QUERY('test') FROM DUAL) HAVING COUNT(*)=$DIMS;\""
 chk "QUERY_TERMS returns terms"       "exa_sql \"SELECT 1 FROM (SELECT CT.QUERY_TERMS('brain metastases') FROM DUAL) LIMIT 1;\""
 
-# --- the lake ---------------------------------------------------------------
-# Step 7 reads publications straight out of object storage, so the lake is part
-# of the demo, not an optional extra. Checked in the order a failure cascades:
-# containers, then the VM clock (which signs every S3 request), then the engine,
-# then an actual read -- because the first three can all pass while the read 403s.
-chk "lake containers healthy"        "test \$(docker ps --filter name=ct-lake- --filter health=healthy -q | wc -l) -ge 2"
-chk "lakehouse engine loads"         "exa_sql 'SELECT LAKEHOUSE.LAKEHOUSE_VERSION();'"
-chk "CT_LAKE virtual schema resolves" "exa_sql 'SELECT 1 FROM CT_LAKE.PUBLICATIONS LIMIT 1;'"
-chk "native+lake join runs"          "exa_sql 'SELECT COUNT(*) FROM CT.V_LANDSCAPE t LEFT JOIN CT_LAKE.TRIAL_PUBLICATIONS p ON p.NCT_ID=t.NCT_ID;'"
-
-# The clock is checked LAST and reported separately: it is the one failure whose
-# error message (403 PermissionDenied) points at the wrong cause entirely.
+# The clock is checked and FIXED BEFORE the lake, not after. It signs every S3
+# request, so a skewed clock fails all three lake checks below -- and checking it
+# last meant preflight printed NO-GO and then silently repaired the cause, so the
+# honest result only appeared on a second run. Overnight sleep is enough: 28,230s
+# of drift was measured after one night with the lid closed.
 RUNTIME="$DEPLOY_DIR/local/runtime"
 LAUNCHER=$(ls -t "$HOME/Library/Caches/.exasol/personal/runtime-artifacts/artifacts/exasol-local-runner"/*/*/*/unpack/launcher 2>/dev/null | head -1 || true)
 if [ -n "$LAUNCHER" ] && [ -f "$RUNTIME/vm-runtime.json" ]; then
@@ -51,6 +44,16 @@ if [ -n "$LAUNCHER" ] && [ -f "$RUNTIME/vm-runtime.json" ]; then
     fi
   fi
 fi
+
+# --- the lake ---------------------------------------------------------------
+# Step 7 reads publications straight out of object storage, so the lake is part
+# of the demo, not an optional extra. Checked in the order a failure cascades:
+# containers, then the engine, then an actual read -- because the first two can
+# both pass while the read fails. The clock was already fixed above.
+chk "lake containers healthy"        "test \$(docker ps --filter name=ct-lake- --filter health=healthy -q | wc -l) -ge 2"
+chk "lakehouse engine loads"         "exa_sql 'SELECT LAKEHOUSE.LAKEHOUSE_VERSION();'"
+chk "CT_LAKE virtual schema resolves" "exa_sql 'SELECT 1 FROM CT_LAKE.PUBLICATIONS LIMIT 1;'"
+chk "native+lake join runs"          "exa_sql 'SELECT COUNT(*) FROM CT.V_LANDSCAPE t LEFT JOIN CT_LAKE.TRIAL_PUBLICATIONS p ON p.NCT_ID=t.NCT_ID;'"
 
 free_connections
 say $([ $fail -eq 0 ] && echo "GO — $fail failures" || echo "NO-GO — $fail failures")

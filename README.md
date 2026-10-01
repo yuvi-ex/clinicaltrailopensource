@@ -21,20 +21,37 @@ says `no`, install it first — this restarts the database:
 exasol slc install PYTHON3
 ```
 
+**The whole thing, one command** — it installs the SLC if it is missing, runs
+every step in order, and finishes with preflight. Roughly 20 minutes, most of it
+the embedding:
+
 ```
-./lake/up.sh             # OPTIONAL: object storage + Iceberg catalog (2 containers)
-./lake/install_engine.sh # OPTIONAL: the lakehouse engine into Exasol
-./02_load_exasol.sh      # shred the committed snapshot into tables
-./03_semantic_layer.sh   # the views, and the resolution layer
-./04_build_vectors.sh    # embed offline, load 25.8M rows, install the UDFs  (~15 min)
-./00_preflight.sh        # GO / NO-GO, 15 checks -- runs LAST, it verifies the result
+./run_all.sh
+./app/run.sh             # then the demo, on http://127.0.0.1:8503
+```
+
+Or step by step, which is the same sequence:
+
+```
+./02_load_exasol.sh                      # shred the committed snapshot into tables
+./03_semantic_layer.sh                   # the views, and the resolution layer
+./04_build_vectors.sh                    # embed offline, 25.8M rows, the UDFs (~15 min)
+
+./lake/up.sh                             # OPTIONAL from here: MinIO + Iceberg catalog
+./lake/install_engine.sh                 # the lakehouse engine into Exasol
+.work/lakeenv/bin/python lake/load_iceberg.py   # write the publications to the lake
+./07_lake.sh                             # the native-plus-lake query
+
+./00_preflight.sh        # GO / NO-GO, 15 checks — LAST, because it verifies the result
 ./app/run.sh             # the demo, on http://127.0.0.1:8503
 ```
 
-There is no `01` step here on purpose: `01_snapshot.sh` refetches the data from
-ClinicalTrials.gov, and the snapshot is already committed, so you skip it. Skip
-the two `lake/` steps too if you do not want the lakehouse — those sections of
-the page then hide themselves rather than erroring.
+There is no `01` step on purpose: `01_snapshot.sh` refetches from
+ClinicalTrials.gov, and the snapshot is committed, so the default path needs no
+network and gives everyone the same numbers. Skip the four `lake/` lines if you
+do not want the lakehouse — those sections of the page hide themselves rather
+than erroring. Do not skip `load_iceberg.py` if you *do* want it: without it the
+catalog has no tables.
 
 ## What it does
 
