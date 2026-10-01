@@ -559,6 +559,14 @@ def _vphase(y, h, num, name, when, pal):
             f'font-weight="600" fill="{MUTED}">{when}</text>')
 
 
+def _overhead(cost):
+    """Say the lake's cost honestly, including when it is inside the noise."""
+    d = cost.get("delta_ms", 0)
+    if cost.get("delta_is_noise") or d < 20:
+        return "same statement, no measurable cost"
+    return f"about +{d} ms over native"
+
+
 def journey_visual(t, lake, cost):
     """Shred, embed, federate, ask -- one picture, no wiring."""
     tr, cr, vr = f'{t["trials"]:,}', f'{t["criteria"]:,}', f'{t["vector_rows"]:,}'
@@ -615,8 +623,7 @@ def journey_visual(t, lake, cost):
     p.append(_vphase(y, BH, 3, "Federate", "the data that should not move", PH_AMBER))
     row(y, BH, [("PubMed", f"{pp} papers, Iceberg on S3", "lake"),
                 ("Read in place", "Rust UDF running DataFusion", "gear"),
-                ("One statement, two tiers", f"about +{cost['delta_ms']} ms over native",
-                 "table")], PH_AMBER)
+                ("One statement, two tiers", _overhead(cost), "table")], PH_AMBER)
 
     y = ys[3]
     p.append(_vphase(y, BH, 4, "Ask", "whenever someone asks", PH_INDIGO))

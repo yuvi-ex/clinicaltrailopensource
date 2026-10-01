@@ -228,14 +228,25 @@ def publication_gap():
 
 @st.cache_data(ttl=TTL, show_spinner=False)
 def tier_cost():
-    """Native vs lake, measured now. Both include client connect, so the honest
-    figure is the DIFFERENCE -- which is what the caller is given."""
+    """What the second storage tier costs, measured now.
+
+    It must be the SAME question asked twice -- once against native tables, once
+    with the lakehouse joined in -- or the difference means nothing. An earlier
+    version timed COUNT(*) over 12,404 native rows against COUNT(*) over 3,796
+    Iceberg rows, which are different workloads, and the "overhead" came out
+    NEGATIVE and was printed on the booth screen as "+-46 ms".
+    """
     import statistics
     def med(sql):
         return statistics.median([exasql.rows_timed(sql)[1] for _ in range(3)])
     nat = med("SELECT COUNT(*) AS N FROM CT.V_LANDSCAPE;")
-    lake = med("SELECT COUNT(*) AS N FROM CT_LAKE.PUBLICATIONS;")
-    return {"native_ms": int(nat), "lake_ms": int(lake), "delta_ms": int(lake - nat)}
+    lake = med("""SELECT COUNT(*) AS N FROM CT.V_LANDSCAPE t
+                  LEFT JOIN CT_LAKE.TRIAL_PUBLICATIONS p ON p.NCT_ID = t.NCT_ID;""")
+    delta = int(lake - nat)
+    # Below about 20ms the two are inside client-connect noise, and claiming a
+    # precise figure there would be dishonest.
+    return {"native_ms": int(nat), "lake_ms": int(lake),
+            "delta_ms": delta, "delta_is_noise": delta < 20}
 
 
 @st.cache_data(ttl=TTL, show_spinner=False)

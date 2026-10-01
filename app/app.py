@@ -384,7 +384,8 @@ with tabs[2]:
             "One engine holds the columns, the free text and the lakehouse.",
             "Everything expensive runs once. A question touches only the bottom half.")
 
-    cost = D.tier_cost() if h["lake"] else {"native_ms": 0, "lake_ms": 0, "delta_ms": 0}
+    cost = (D.tier_cost() if h["lake"]
+            else {"native_ms": 0, "lake_ms": 0, "delta_ms": 0, "delta_is_noise": True})
     html(f'<div class="archbox">{ARCH.journey_visual(t, lake, cost)}</div>')
 
     c1, c2 = st.columns(2)
@@ -403,7 +404,7 @@ GROUP  BY v.NCT_ID, v.CHUNK_ID""", language="sql")
                  "A virtual schema, not a pipeline",
                  f"{n(lake['papers'])} PubMed records stay as Iceberg tables on object storage, "
                  "never loaded. A Rust UDF reads them at query time and the planner joins them to "
-                 f"native tables — about <b>+{cost['delta_ms']} ms</b>."
+                 f"native tables — {ARCH._overhead(cost)}."
                  if h["lake"] else "Start the lake with lake/up.sh to show this live.")
         solution("Why an agent can use any of it",
                  "Because it is all just SQL",
