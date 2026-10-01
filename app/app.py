@@ -385,7 +385,7 @@ with tabs[2]:
             "Everything expensive runs once. A question touches only the bottom half.")
 
     cost = D.tier_cost() if h["lake"] else {"native_ms": 0, "lake_ms": 0, "delta_ms": 0}
-    html(f'<div class="archbox">{ARCH.diagram(t, lake, cost)}</div>')
+    html(f'<div class="archbox">{ARCH.journey_visual(t, lake, cost)}</div>')
 
     c1, c2 = st.columns(2)
     with c1:

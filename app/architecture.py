@@ -460,3 +460,170 @@ def before_after():
     p.append(f'<path d="M934,190 L934,180" stroke="{WIRE}" stroke-width="1.8"/>')
     p.append('</svg>')
     return "".join(p)
+
+
+# ============================================================ the journey view
+# Four numbered bands, each a left-to-right chain of icon cards -- the same
+# shape as the Kafka demo's "how it works", so the two booth demos read as one
+# family. It replaces a dense wiring diagram with the sentence you actually say.
+
+FIG = "Figtree, system-ui, sans-serif"
+X_LINE = "#DCE3EE"
+PH_BLUE   = ("#0076AD", "#E2F4FF")
+PH_TEAL   = ("#12796A", "#E3F5F1")
+PH_AMBER  = ("#9A6206", "#FEF3DC")
+PH_INDIGO = ("#3545A0", "#ECEFF9")
+
+
+def _glyph(x, y, kind, colour):
+    """A small mark so a card is recognisable before it is read."""
+    g = [f'<rect x="{x}" y="{y}" width="26" height="26" rx="7" fill="{colour}" '
+         f'fill-opacity="0.12"/>']
+    cx, cy = x + 13, y + 13
+    if kind == "file":
+        g.append(f'<path d="M{cx-5},{cy-7} h7 l3,3 v11 h-10 z" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.6" stroke-linejoin="round"/>')
+    elif kind == "db":
+        g.append(f'<ellipse cx="{cx}" cy="{cy-5}" rx="7" ry="2.6" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.6"/>'
+                 f'<path d="M{cx-7},{cy-5} v9 a7,2.6 0 0 0 14,0 v-9" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.6"/>')
+    elif kind == "nodes":
+        g.append(f'<circle cx="{cx-5}" cy="{cy-4}" r="2.4" fill="{colour}"/>'
+                 f'<circle cx="{cx+5}" cy="{cy-4}" r="2.4" fill="{colour}"/>'
+                 f'<circle cx="{cx}" cy="{cy+5}" r="2.4" fill="{colour}"/>'
+                 f'<path d="M{cx-5},{cy-4} L{cx},{cy+5} L{cx+5},{cy-4}" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.4"/>')
+    elif kind == "table":
+        g.append(f'<rect x="{cx-7}" y="{cy-6}" width="14" height="12" rx="1.6" '
+                 f'fill="none" stroke="{colour}" stroke-width="1.6"/>'
+                 f'<path d="M{cx-7},{cy-2} h14 M{cx},{cy-6} v12" stroke="{colour}" '
+                 f'stroke-width="1.2"/>')
+    elif kind == "text":
+        g.append(f'<path d="M{cx-7},{cy-6} h14 M{cx-7},{cy-1} h14 M{cx-7},{cy+4} h9" '
+                 f'stroke="{colour}" stroke-width="1.6" stroke-linecap="round"/>')
+    elif kind == "sigma":
+        g.append(f'<path d="M{cx+5},{cy-7} h-10 l6,7 l-6,7 h10" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.7" stroke-linejoin="round" '
+                 f'stroke-linecap="round"/>')
+    elif kind == "lake":
+        g.append(f'<path d="M{cx-7},{cy+4} q3.5,-5 7,0 q3.5,5 7,0" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.6"/>'
+                 f'<path d="M{cx-7},{cy-3} q3.5,-5 7,0 q3.5,5 7,0" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.6" stroke-opacity="0.55"/>')
+    elif kind == "gear":
+        g.append(f'<circle cx="{cx}" cy="{cy}" r="3.2" fill="none" stroke="{colour}" '
+                 f'stroke-width="1.6"/><circle cx="{cx}" cy="{cy}" r="7" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.6" stroke-dasharray="3 2.6"/>')
+    elif kind == "chat":
+        g.append(f'<path d="M{cx-7},{cy-5} h14 v9 h-8 l-4,4 v-4 h-2 z" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.6" stroke-linejoin="round"/>')
+    elif kind == "person":
+        g.append(f'<circle cx="{cx}" cy="{cy-4}" r="3.2" fill="none" stroke="{colour}" '
+                 f'stroke-width="1.6"/><path d="M{cx-6},{cy+7} a6,5 0 0 1 12,0" '
+                 f'fill="none" stroke="{colour}" stroke-width="1.6"/>')
+    elif kind == "shield":
+        g.append(f'<path d="M{cx},{cy-7} l6,2.5 v5 c0,4-3,6.5-6,7.5 c-3-1-6-3.5-6-7.5 '
+                 f'v-5 z" fill="none" stroke="{colour}" stroke-width="1.6" '
+                 f'stroke-linejoin="round"/>'
+                 f'<path d="M{cx-2.6},{cy+0.5} l2,2 l3.4,-3.8" fill="none" '
+                 f'stroke="{colour}" stroke-width="1.5" stroke-linecap="round" '
+                 f'stroke-linejoin="round"/>')
+    return "".join(g)
+
+
+def _vcard(x, y, w, h, title, caption, colour, kind, solid=False):
+    fill, tcol, ccol = (colour, "#fff", "#ffffffcc") if solid else ("#fff", INK, MUTED)
+    icon_col = "#fff" if solid else colour
+    cy = y + h / 2
+    return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="14" fill="{fill}" '
+            f'stroke="{colour if solid else X_LINE}" stroke-width="1.3"/>'
+            f'<g transform="translate({x+14},{cy-18}) scale(1.385)">'
+            f'{_glyph(0, 0, kind, icon_col)}</g>'
+            f'<text x="{x+66}" y="{cy-3}" font-family="{FIG}" font-size="15.5" '
+            f'font-weight="800" fill="{tcol}">{title}</text>'
+            f'<text x="{x+66}" y="{cy+16}" font-family="{FIG}" font-size="12.5" '
+            f'fill="{ccol}">{caption}</text>')
+
+
+def _vphase(y, h, num, name, when, pal):
+    colour, soft = pal
+    return (f'<rect x="20" y="{y}" width="1200" height="{h}" rx="18" fill="{soft}" '
+            f'fill-opacity="0.55"/>'
+            f'<circle cx="58" cy="{y+h/2}" r="19" fill="{colour}"/>'
+            f'<text x="58" y="{y+h/2+6}" text-anchor="middle" font-family="{FIG}" '
+            f'font-size="17" font-weight="800" fill="#fff">{num}</text>'
+            f'<text x="90" y="{y+h/2-3}" font-family="{FIG}" font-size="19" '
+            f'font-weight="800" fill="{colour}">{name}</text>'
+            f'<text x="90" y="{y+h/2+17}" font-family="{FIG}" font-size="12" '
+            f'font-weight="600" fill="{MUTED}">{when}</text>')
+
+
+def journey_visual(t, lake, cost):
+    """Shred, embed, federate, ask -- one picture, no wiring."""
+    tr, cr, vr = f'{t["trials"]:,}', f'{t["criteria"]:,}', f'{t["vector_rows"]:,}'
+    pp = f'{lake["papers"]:,}'
+    C, W, CH = [262, 582, 902], 290, 74
+    BH, BH2, GAP = 110, 170, 18
+    ys = [10]
+    for hgt in (BH, BH2, BH):
+        ys.append(ys[-1] + hgt + GAP)
+    total = ys[-1] + BH + 10
+    arrow = "#7C8CA0"
+    p = [f'<svg viewBox="0 0 1240 {total}" width="100%" role="img" '
+         f'xmlns="http://www.w3.org/2000/svg" aria-label="Four phases: shred the '
+         f'registry into Exasol once; embed the eligibility text offline and store it '
+         f'as rows so cosine is a GROUP BY; read the publications in place from object '
+         f'storage; and ask in plain English through the MCP server.">',
+         f'<defs><marker id="jv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" '
+         f'markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="{arrow}"/>'
+         f'</marker></defs>']
+
+    def row(y, h, cards, pal):
+        cy = y + h / 2
+        for i, (title, cap, kind) in enumerate(cards):
+            p.append(_vcard(C[i], cy - CH / 2, W, CH, title, cap, pal[0], kind))
+            if i:
+                p.append(f'<path d="M{C[i-1]+W+4},{cy} L{C[i]-6},{cy}" stroke="{arrow}" '
+                         f'stroke-width="2.2" marker-end="url(#jv)"/>')
+
+    y = ys[0]
+    p.append(_vphase(y, BH, 1, "Shred", "once, before the demo", PH_BLUE))
+    row(y, BH, [("ClinicalTrials.gov", f"{tr} trials, snapshot in git", "file"),
+                ("Shred &amp; derive", f"{cr} criteria, sections recovered", "nodes"),
+                ("Exasol native tables", "and the semantic layer views", "db")], PH_BLUE)
+
+    # Phase 2 is the one with a hub, because it is the idea the demo is built on.
+    y = ys[1]
+    col = PH_TEAL[0]
+    p.append(_vphase(y, BH2, 2, "Embed", "once, offline", PH_TEAL))
+    sh, sw = 62, W - 50
+    s1, s2 = y + BH2 / 2 - sh - 8, y + BH2 / 2 + 8
+    p.append(_vcard(C[0], s1, sw, sh, "Eligibility text", "one row per criterion", col, "text"))
+    p.append(_vcard(C[0], s2, sw, sh, "TF-IDF &#8594; SVD", "96 dims, in Docker", col, "gear"))
+    p.append(_vcard(C[1], y + 18, W, BH2 - 36, "Exasol", f"{vr} rows, one per dimension",
+                    col, "db", solid=True))
+    for sy, ty in ((s1 + sh / 2, y + BH2 / 2 - 16), (s2 + sh / 2, y + BH2 / 2 + 16)):
+        p.append(f'<path d="M{C[0]+sw+6},{sy} C{C[0]+sw+40},{sy} {C[1]-40},{ty} {C[1]-8},{ty}" '
+                 f'fill="none" stroke="{arrow}" stroke-width="2.2" marker-end="url(#jv)"/>')
+    p.append(_vcard(C[2], y + BH2 / 2 - CH / 2, W, CH, "Cosine is a GROUP BY",
+                    "no vector type, no index", col, "sigma"))
+    p.append(f'<path d="M{C[1]+W+4},{y+BH2/2} L{C[2]-6},{y+BH2/2}" stroke="{arrow}" '
+             f'stroke-width="2.2" marker-end="url(#jv)"/>')
+
+    y = ys[2]
+    p.append(_vphase(y, BH, 3, "Federate", "the data that should not move", PH_AMBER))
+    row(y, BH, [("PubMed", f"{pp} papers, Iceberg on S3", "lake"),
+                ("Read in place", "Rust UDF running DataFusion", "gear"),
+                ("One statement, two tiers", f"about +{cost['delta_ms']} ms over native",
+                 "table")], PH_AMBER)
+
+    y = ys[3]
+    p.append(_vphase(y, BH, 4, "Ask", "whenever someone asks", PH_INDIGO))
+    row(y, BH, [("A question, in English", "typed into any MCP client", "chat"),
+                ("The agent writes the SQL", "same schema, same grants", "person"),
+                ("Answer with its NCT IDs", "every claim cites a trial", "shield")],
+        PH_INDIGO)
+
+    p.append('</svg>')
+    return "".join(p)
