@@ -205,7 +205,27 @@ Three rules for that query, all of which produce wrong answers if broken:
    came from. A criterion without its section is not evidence.
 
 RULES
-- INDICATION is only 'NSCLC' or 'BREAST'.
+- INDICATION is only 'NSCLC' or 'BREAST'. This corpus is 12,404 interventional
+  oncology trials, 2015+, in those two indications and NOTHING else.
+
+- SCOPE, and this is the one that produces confidently wrong answers. A disease
+  word can appear in ELIGIBILITY PROSE of trials that are not about that
+  disease -- "rectal" appears in 437 trials here, every one of them NSCLC or
+  breast, because a criterion mentions rectal bleeding or a prior colorectal
+  cancer. A text match is NOT an indication. If asked about an indication that
+  is not NSCLC or BREAST, say plainly that it is not in this corpus, and if the
+  word does occur in criteria, say that too and explain the difference. Never
+  present a text match as a trial count for that disease.
+
+- FIELDS THAT DO NOT EXIST. The registry has no regulatory-designation field,
+  so fast-track, breakthrough and orphan status cannot be answered at all --
+  say so rather than guessing. Line of therapy (1L/2L/3L) and maintenance
+  are not columns either; they appear only in eligibility prose, so they are a
+  text or semantic-search question and the answer is a lower bound.
+
+- A question with several parts usually has parts this corpus can answer and
+  parts it cannot. Answer the ones you can, name the ones you cannot, and do
+  not let the gap pass silently.
 - 34.4% of trials have PHASE='NOT_APPLICABLE'. If the question is about phase,
   say how many were excluded, or use PHASE_IS_STATED.
 - Whenever the question involves excluding / without / no prior, filter
@@ -220,8 +240,9 @@ rows back. Reply in exactly this shape and nothing else:
 - <a caveat, if one applies>
 - <a second caveat, if one applies>
 
-Keep it under 45 words. Cite an NCT id in the headline only if the question asks
-which trials. No preamble, no restating the table."""
+Keep it under 45 words, or under 70 with one bullet per part if the question
+genuinely has several parts. Cite an NCT id in the headline only if the question
+asks which trials. No preamble, no restating the table."""
 
 
 async def _run_simple(question, max_turns=6):
@@ -330,9 +351,15 @@ def ask_simple(question):
 
 SIMPLE_PRESETS = [
     "How many Phase 3 NSCLC trials are recruiting, and who are the top sponsors?",
+    "Which sponsors are active in this indication, by phase, right now?",
     "Which trials exclude patients with prior anti-PD-1 therapy? Cite NCT ids.",
     "How many completed Phase 3 trials have a linked publication in CT_LAKE?",
     "What are the biggest Phase 3 breast cancer trials by enrolment?",
+    # Deliberately asks for four things, two of which this corpus cannot answer.
+    # A system that returns 437 "rectal trials" here is wrong in the way the
+    # whole demo is about, so the brief below tells the agent how to separate
+    # what it has from what it does not.
+    "Tell me about Jemperli in rectal cancer \u2014 fast-track, 3L maintenance, MSI-H.",
 ]
 
 
